@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}آخر النشاط - إدارة المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { position: relative; }
+    .dashboard-container { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+    .sidebar { width: 260px; background: var(--nav-bg); padding: 20px 16px; border-left: 1px solid var(--nav-border); }
+    .main-content { flex: 1; padding: 20px; padding-bottom: 80px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+            <div class="header">
+                <h1><i class="fas fa-history" style="color: var(--primary); margin-left: 10px;"></i> آخر النشاط — من قام به</h1>
+            </div>
+
+            <div class="card">
+                <p style="color: var(--text-secondary); margin-bottom: 16px;">آخر 50 إجراء في النظام مع اسم من قام به وتوقيت الحدث.</p>
+                <ul class="activity-list">
+                    {% for act in activities %}
+                    <li>
+                        <span class="who">{{ act.user_name or 'نظام' }}</span>
+                        <span>{{ act.action }}{% if act.details %} — {{ act.details }}{% endif %}</span>
+                        <span style="color: var(--text-secondary); font-size: 11px;">{{ act.created_at }}</span>
+                    </li>
+                    {% else %}
+                    <li style="color: var(--text-secondary);">لا يوجد نشاط مسجل بعد.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+{% endblock %}
+
+

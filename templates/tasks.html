@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}المهام - إدارة المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Task Progress Styles */
+    .task-progress {
+        margin: 12px 0;
+        padding: 12px;
+        background: var(--bg);
+        border-radius: 10px;
+    }
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+    .progress-value {
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .progress-track {
+        height: 10px;
+        background: var(--border);
+        border-radius: 5px;
+        overflow: hidden;
+        margin-bottom: 8px;
+    }
+    .progress-fill {
+        height: 100%;
+        background: var(--progress-gradient);
+        border-radius: 5px;
+        transition: width 0.3s ease;
+    }
+    .progress-slider {
+        width: 100%;
+        height: 6px;
+        -webkit-appearance: none;
+        background: transparent;
+        cursor: pointer;
+    }
+    .progress-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        background: var(--primary);
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .progress-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: var(--primary);
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-tasks" style="color: var(--primary); margin-left: 10px;"></i> المهام</h1>
+</div>
+
+<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 20px 0;">
+    <div class="action-section">
+        <button type="button" onclick="openModal('addTaskModal')" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-plus"></i> إضافة مهمة جديدة
+        </button>
+    </div>
+    
+    <div class="filter-section">
+        <div class="task-filters" style="padding: 12px 20px; background: linear-gradient(135deg, var(--bg), rgba(255,255,255,0.1)); border-radius: 12px; border: 1px solid var(--border); display: flex; gap: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+            <a href="/tasks" class="priority-filter-btn {{ '' if not priority else 'inactive' }}" style="padding: 10px 16px; border-radius: 8px; min-width: 80px; text-align: center; font-weight: 500; font-size: 13px; text-decoration: none; transition: all 0.25s ease; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);">
+                الكل
+            </a>
+            <a href="/tasks?priority=عادية" class="priority-filter-btn {{ 'active' if priority == 'عادية' else '' }}" style="padding: 10px 16px; border-radius: 8px; min-width: 80px; text-align: center; font-weight: 500; font-size: 13px; text-decoration: none; transition: all 0.25s ease; border: 2px solid #95a5a6; background: #f8f9fa; color: #6c757d;">
+                عادية
+            </a>
+            <a href="/tasks?priority=متوسطة" class="priority-filter-btn {{ 'active' if priority == 'متوسطة' else '' }}" style="padding: 10px 16px; border-radius: 8px; min-width: 80px; text-align: center; font-weight: 500; font-size: 13px; text-decoration: none; transition: all 0.25s ease; border: 2px solid #f39c12; background: #fff3cd; color: #856404;">
+                متوسطة
+            </a>
+            <a href="/tasks?priority=عالية" class="priority-filter-btn {{ 'active' if priority == 'عالية' else '' }}" style="padding: 10px 16px; border-radius: 8px; min-width: 80px; text-align: center; font-weight: 500; font-size: 13px; text-decoration: none; transition: all 0.25s ease; border: 2px solid #dc3545; background: #f8d7da; color: #721c24;">
+                عالية
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.priority-filter-btn {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.priority-filter-btn:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
+}
+.priority-filter-btn.active {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+    border-width: 3px !important;
+}
+.priority-filter-btn.inactive {
+    opacity: 0.6;
+}
+@media (max-width: 768px) {
+    .task-filters {
+        padding: 16px !important;
+        margin: 16px 0 !important;
+    }
+    .priority-filter-btn {
+        min-width: 90px !important;
+        padding: 10px 12px !important;
+        font-size: 13px !important;
+    }
+}
+</style>
+
+<style>
+.priority-filter-btn {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.priority-filter-btn:hover:not(.active) {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
+}
+.priority-filter-btn.active {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+    border-width: 3px !important;
+}
+.priority-filter-btn.inactive {
+    opacity: 0.6;
+}
+@media (max-width: 768px) {
+    .task-filters {
+        padding: 16px;
+        margin: 16px 0;
+    }
+    .priority-filter-btn {
+        min-width: 90px;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+}
+</style>
+
+{% if tasks %}
+<div class="tasks-grid">
+    {% for task in tasks %}
+    <div class="task-card" data-task-id="{{ task.id }}">
+        <div class="task-header">
+            <h4 class="task-title">{{ task.title }}</h4>
+            <span class="priority-badge {{ 'high' if task.priority == 'عالية' else 'medium' if task.priority == 'متوسطة' else 'normal' }}">
+                <i class="fas fa-flag"></i> {{ task.priority }}
+            </span>
+        </div>
+
+        {% if task.description %}
+        <p class="task-description">{{ task.description }}</p>
+        {% endif %}
+
+        <div class="task-info">
+            <span><i class="fas fa-user"></i> {{ task.assigned_to_name }}</span>
+            {% if task.due_date %}<span><i class="fas fa-calendar-alt"></i> {{ task.due_date }}</span>{% endif %}
+            {% if task.due_time %}<span><i class="fas fa-clock"></i> {{ task.due_time }}</span>{% endif %}
+        </div>
+
+        <div class="task-progress">
+            <div class="progress-header">
+                <span><i class="fas fa-chart-pie"></i> نسبة الإنجاز</span>
+                <span class="progress-value">{{ task.progress if task.progress else 0 }}%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: {{ task.progress if task.progress else 0 }}%"></div>
+            </div>
+            <input type="range" min="0" max="100" value="{{ task.progress if task.progress else 0 }}"
+                   class="progress-slider"
+                   onchange="updateProgress({{ task.id }}, this.value)"
+                   title="اسحب لتحديث نسبة الإنجاز">
+        </div>
+
+        <form action="{{ url_for('update_task', task_id=task.id) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="status" class="status-select" onchange="this.form.submit()">
+                <option value="معلقة" {{ 'selected' if task.status == 'معلقة' }}>معلقة</option>
+                <option value="قيد التنفيذ" {{ 'selected' if task.status == 'قيد التنفيذ' }}>قيد التنفيذ</option>
+                <option value="مكتملة" {{ 'selected' if task.status == 'مكتملة' }}>مكتملة</option>
+            </select>
+        </form>
+
+        {% if user.role == 'مدير' %}
+        <div class="task-actions">
+            <form method="POST" action="{{ url_for('delete_task', task_id=task.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذه المهمة؟');" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="action-btn delete">
+                    <i class="fas fa-trash"></i> حذف
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-tasks" style="font-size: 60px; color: var(--border); margin-bottom: 20px;"></i>
+    <h3>لا يوجد مهام</h3>
+    <p>أضف مهمة جديدة للبدء</p>
+</div>
+{% endif %}
+
+<div id="addTaskModal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'addTaskModal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3><i class="fas fa-plus-circle"></i> إضافة مهمة جديدة</h3>
+        <form method="POST" action="{{ url_for('add_task') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label><i class="fas fa-heading"></i> عنوان المهمة</label>
+                <input type="text" name="title" required placeholder="أدخل عنوان المهمة">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-align-right"></i> الوصف</label>
+                <textarea name="description" rows="3" placeholder="أدخل وصف المهمة"></textarea>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-user"></i> الموظف المسؤول</label>
+                {% if user.role in ['مدير', 'مشرف', 'مسؤول_النظام'] %}
+                <select name="assigned_to" {{ 'required' if user.role == 'مدير' else '' }}>
+                    <option value="{{ session['user_id'] }}"> ({{ user.role }})</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}">{{ emp.name }} ({{ 'مشرف' if emp.role == 'مشرف' else 'موظف' if emp.role != session.role else 'نفسي' }})</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <select name="assigned_to" readonly>
+                    <option value="{{ session['user_id'] }}" selected>({{ user.role }})</option>
+                </select>
+                <small style="color: var(--text-secondary); display: block; margin-top: 6px;">يمكنك إسناد المهمة لنفسك فقط.</small>
+                {% endif %}
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label><i class="fas fa-calendar-alt"></i> تاريخ الاستحقاق</label>
+                    <input type="date" name="due_date">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-clock"></i> وقت الاستحقاق</label>
+                    <input type="time" name="due_time">
+                </div>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-flag"></i> الأولوية</label>
+                <select name="priority">
+                    <option value="عادية">عادية</option>
+                    <option value="متوسطة">متوسطة</option>
+                    <option value="عالية">عالية</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> إضافة</button>
+                <button type="button" onclick="closeModal('addTaskModal')" class="btn btn-danger"><i class="fas fa-times"></i> إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهام الموظف - إدارة المهام</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}">
+    <style>
+        body { position: relative; }
+        .network-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; pointer-events: none; }
+        .network-bg canvas { width: 100%; height: 100%; opacity: 0.08; }
+        .dashboard-container { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+        .sidebar { width: 260px; background: var(--nav-bg); padding: 20px 16px; border-left: 1px solid var(--nav-border); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; padding-bottom: 80px; }
+    </style>
+</head>
+<body>
+    <div class="network-bg">
+        <canvas id="networkCanvas"></canvas>
+    </div>
+    
+    <!-- Theme Toggle - Fixed at top left -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع">
+        <i class="fas fa-moon"></i>
+    </button>
+    
+    <!-- Mobile Menu Button -->
+    <button class="hamburger-menu" onclick="toggleMobileNav()" aria-label="القائمة">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav-overlay" onclick="toggleMobileNav()"></div>
+    <nav class="mobile-nav" id="mobileNav">
+        <button class="mobile-nav-close" onclick="toggleMobileNav()">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="logo" style="margin-bottom: 30px; margin-top: 40px;">
+            <div class="logo-icon" style="width: 60px; height: 60px; font-size: 24px; margin: 0 auto 15px;">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <h2 style="font-size: 18px; text-align: center;">إدارة المهام</h2>
+        </div>
+        
+        <a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> لوحة التحكم</a>
+        {% if user.role == 'مدير' %}
+        <a href="{{ url_for('employees') }}"><i class="fas fa-users"></i> الموظفين</a>
+        {% endif %}
+        <a href="{{ url_for('tasks') }}"><i class="fas fa-tasks"></i> المهام</a>
+        <a href="{{ url_for('logout') }}" class="logout"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
+    </nav>
+    
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h2>إدارة المهام</h2>
+            </div>
+            
+            <div class="user-info" style="flex-direction: column; text-align: center; padding: 20px;">
+                <div class="user-avatar" style="width: 70px; height: 70px; font-size: 28px; margin-bottom: 10px;">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="name" style="font-size: 16px; font-weight: 600;">{{ user.name }}</div>
+                <div class="role" style="color: var(--primary); font-size: 13px; margin-top: 5px;">{{ user.role }}</div>
+            </div>
+            
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> لوحة التحكم</a></li>
+                {% if user.role == 'مدير' %}
+                <li><a href="{{ url_for('employees') }}"><i class="fas fa-users"></i> الموظفين</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('tasks') }}"><i class="fas fa-tasks"></i> المهام</a></li>
+                <li><a href="{{ url_for('logout') }}" class="logout"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1><i class="fas fa-user-circle" style="color: var(--primary); margin-left: 10px;"></i> مهام: <span>{{ employee.name }}</span></h1>
+                
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <!-- Theme Toggle in Header -->
+                    <button class="theme-toggle theme-toggle-header" onclick="toggleTheme()" title="تبديل الوضع">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Back Button -->
+            <div class="quick-actions">
+                <a href="{{ url_for('employees') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-right"></i> العودة للموظفين
+                </a>
+            </div>
+            
+            <!-- Tasks Grid -->
+            {% if tasks %}
+            <div class="tasks-grid">
+                {% for task in tasks %}
+                <div class="task-card">
+                    <div class="task-header">
+                        <h4 class="task-title">{{ task.title }}</h4>
+                        <span class="priority-badge {{ 'high' if task.priority == 'عالية' else 'medium' if task.priority == 'متوسطة' else 'normal' }}">
+                            <i class="fas fa-flag"></i> {{ task.priority }}
+                        </span>
+                    </div>
+                    
+                    {% if task.description %}
+                    <p class="task-description">{{ task.description }}</p>
+                    {% endif %}
+                    
+                    <div class="task-info">
+                        {% if task.due_date %}
+                        <span><i class="fas fa-calendar-alt"></i> {{ task.due_date }}</span>
+                        {% endif %}
+                        {% if task.due_time %}
+                        <span><i class="fas fa-clock"></i> {{ task.due_time }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="task-status">
+                        <span class="status-badge {{ 'status-progress' if task.status == 'قيد التنفيذ' else 'status-pending' if task.status == 'معلقة' else 'status-completed' }}">
+                            {{ task.status }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-tasks" style="font-size: 60px; color: var(--border); margin-bottom: 20px;"></i>
+                <h3>لا يوجد مهام لهذا الموظف</h3>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

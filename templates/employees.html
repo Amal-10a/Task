@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}الموظفين - إدارة المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+body { position: relative; }
+.network-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; pointer-events: none; }
+.network-bg canvas { width: 100%; height: 100%; opacity: 0.08; }
+.dashboard-container { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+.sidebar { width: 260px; background: var(--nav-bg); padding: 20px 16px; border-left: 1px solid var(--nav-border); display: flex; flex-direction: column; }
+.main-content { flex: 1; padding: 20px; overflow-y: auto; padding-bottom: 80px; }
+
+/* Progress Bar Styles - Enhanced */
+.employee-table-wrap { 
+    overflow-x: auto; 
+    -webkit-overflow-scrolling: touch; 
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+.employee-table { 
+    width: 100%; 
+    min-width: 600px; 
+    border-collapse: collapse; 
+}
+.employee-table thead {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+}
+@media (max-width: 768px) {
+    .employee-table thead { display: none; }
+    .employee-table tr { 
+        display: block; margin-bottom: 1rem; border-radius: .75rem; box-shadow: 0 .25rem 1rem rgba(0,0,0,.15); background: var(--glass-bg); border: 1px solid var(--glass-border);
+    }
+    .employee-table td { 
+        display: block; text-align: right; padding: .875rem 1rem; border-bottom: 1px solid var(--border); position: relative; padding-right: 45%; 
+    }
+    .employee-table td[data-label]:before { 
+        content: attr(data-label) ": "; position: absolute; left: 1rem; width: 40%; font-weight: 600; color: var(--primary); 
+    }
+    .employee-table td:last-child { border-bottom: none; padding-right: 1rem; }
+    .employee-table-wrap { overflow: visible; }
+}
+/* Mobile Cards - data-label support */
+.employee-table td[data-label]:before {
+    content: attr(data-label) ": ";
+    position: absolute;
+    left: 16px;
+    width: 45%;
+    padding-right: 8px;
+    font-weight: 600;
+    color: var(--primary);
+}
+.employee-table th { 
+    padding: 16px 12px; 
+    font-size: 13px; 
+    font-weight: 600;
+    color: white;
+    text-align: center;
+    white-space: nowrap;
+    border: none;
+}
+.employee-table th:first-child {
+    border-radius: 16px 0 0 0;
+}
+.employee-table th:last-child {
+    border-radius: 0 16px 0 0;
+}
+.employee-table td { 
+    padding: 14px 10px; 
+    font-size: 13px; 
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+.employee-table tbody tr {
+    transition: all 0.3s ease;
+    background: var(--card-bg);
+}
+.employee-table tbody tr:hover {
+    background: linear-gradient(90deg, rgba(139, 69, 19, 0.08) 0%, rgba(210, 105, 30, 0.05) 100%);
+    transform: scale(1.01);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+.employee-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.employee-table tbody tr:last-child td:first-child {
+    border-radius: 0 0 0 16px;
+}
+.employee-table tbody tr:last-child td:last-child {
+    border-radius: 0 0 16px 0;
+}
+.employee-table .user-cell { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    justify-content: flex-start;
+}
+.employee-table .user-avatar { 
+    width: 38px; 
+    height: 38px; 
+    font-size: 14px; 
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+.employee-table .action-btns { 
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap; 
+    justify-content: center;
+}
+.employee-table .action-btns a { 
+    padding: 8px 12px; 
+    font-size: 12px; 
+    border-radius: 10px; 
+    text-decoration: none; 
+    transition: all 0.3s ease;
+    min-width: 36px;
+}
+.employee-table .action-btns a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhanced Progress Bar */
+.progress-container { 
+    width: 100%; 
+    min-width: 100px; 
+    height: 26px; 
+    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); 
+    border-radius: 13px; 
+    position: relative; 
+    overflow: hidden; 
+    flex-shrink: 0;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.dark .progress-container {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.progress-bar { 
+    height: 100%; 
+    background: var(--progress-gradient); 
+    border-radius: 13px; 
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+    min-width: 0;
+    position: relative;
+    box-shadow: var(--progress-shadow);
+}
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+.progress-text { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    font-size: 11px; 
+    font-weight: 700; 
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+}
+
+/* Task Count Badge */
+.task-count-badge { 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    font-weight: 600; 
+    font-size: 13px;
+    background: var(--bg);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+.task-count-badge .completed { color: var(--success); }
+.task-count-badge .separator { color: var(--text-secondary); }
+.task-count-badge .total { color: var(--text); }
+
+/* Target Input */
+.target-form { display: inline-block; }
+.target-input { 
+    width: 60px; 
+    padding: 8px 10px; 
+    border: 2px solid var(--border); 
+    border-radius: 10px; 
+    background: var(--bg); 
+    color: var(--text); 
+    font-size: 12px; 
+    font-weight: 600; 
+    text-align: center;
+    transition: all 0.3s ease;
+}
+.target-input:focus { 
+    outline: none; 
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(139, 69, 19, 0.15);
+    transform: scale(1.05);
+}
+
+/* Table Card Enhancement */
+.table-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+}
+.table-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border);
+}
+.table-card h3 i {
+    color: var(--primary);
+    font-size: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .employee-table { min-width: 500px; }
+    .employee-table th, .employee-table td { padding: 12px 8px; font-size: 12px; }
+    .employee-table .user-avatar { width: 32px; height: 32px; font-size: 12px; }
+    .employee-table .task-count-badge { font-size: 11px; }
+    .employee-table .target-input { width: 50px; padding: 6px 8px; font-size: 11px; }
+    .employee-table .action-btns a { padding: 6px 10px; font-size: 11px; }
+    .progress-container { height: 22px; min-width: 80px; }
+    .progress-text { font-size: 10px; }
+}
+@media (max-width: 480px) {
+    .employee-table { min-width: 450px; }
+    .employee-table th, .employee-table td { padding: 10px 6px; font-size: 11px; }
+    .table-card { padding: 16px; border-radius: 16px; }
+}
+</style>{% endblock %}
+
+
+{% block content %}
+
+            <div class="header">
+                <h1><i class="fas fa-users" style="color: var(--primary); margin-left: 10px;"></i> الموظفين</h1>
+                
+
+            </div>
+
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button type="button" onclick="openModal('addEmployeeModal')" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> إضافة مستخدم جديد
+                </button>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Supervisors Section -->
+            {% if supervisors %}
+            <div class="table-card">
+                <h3><i class="fas fa-user-shield"></i> المشرفين</h3>
+                <div class="employee-table-wrap">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>المستخدم</th>
+                                <th>المهام</th>
+                                <th data-label="الإنجاز">الإنجاز</th>
+                                <th data-label="الهدف">الهدف</th>
+                                <th>التحكم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sup in supervisors %}
+                            <tr>
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar" style="background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);"><i class="fas fa-user-shield"></i></div>
+                                        <span>{{ sup.name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ sup.username }}</td>
+                                <td>
+                                    <div class="task-count-badge">
+                                        <span class="completed">{{ sup.completed_count if sup.completed_count else 0 }}</span>
+                                        <span class="separator">/</span>
+                                        <span class="total">{{ sup.task_count if sup.task_count else 0 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: {{ (sup.completed_count / sup.task_count * 100) if sup.task_count > 0 else 0 }}%"></div>
+                                        <span class="progress-text">{{ ((sup.completed_count / sup.task_count * 100) if sup.task_count > 0 else 0)|int }}%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('update_employee_target', employee_id=sup.id) }}" method="POST" class="target-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="number" name="target_tasks" value="{{ sup.target_tasks if sup.target_tasks else 5 }}" min="1" max="100" class="target-input" title="الهدف الشهري" onchange="this.form.submit()">
+                                    </form>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <a href="{{ url_for('employee_dashboard', employee_id=sup.id) }}" class="btn btn-small" style="background: #E8F5E9; color: #2E7D32;" title="لوحة تفصيلية"><i class="fas fa-chart-line"></i></a>
+                                        <a href="{{ url_for('employee_tasks', employee_id=sup.id) }}" class="btn btn-small" style="background: #E3F2FD; color: #1976D2;"><i class="fas fa-eye"></i></a>
+                                        <a href="#" onclick="openEditModal('{{ sup.id }}', '{{ sup.name }}', '{{ sup.username }}', '{{ sup.role }}', '{{ sup.email or '' }}'); return false;" class="btn btn-small" style="background: #FFF3E0; color: #F57C00;"><i class="fas fa-edit"></i></a>
+                                        <form method="POST" action="{{ url_for('delete_employee', employee_id=sup.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا المشرف؟');" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-small" style="background: #FFEBEE; color: #C62828;"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Employees Grid -->
+            <div class="table-card">
+                <h3><i class="fas fa-users"></i> الموظفين</h3>
+                
+                {% if employees %}
+                <div class="employee-table-wrap">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>المستخدم</th>
+                                <th>المهام</th>
+                                <th>الإنجاز</th>
+                                <th>الهدف</th>
+                                <th>التحكم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emp in employees %}
+                            <tr>
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar"><i class="fas fa-user"></i></div>
+                                        <span>{{ emp.name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ emp.username }}</td>
+                                <td>
+                                    <div class="task-count-badge">
+                                        <span class="completed">{{ emp.completed_count if emp.completed_count else 0 }}</span>
+                                        <span class="separator">/</span>
+                                        <span class="total">{{ emp.task_count if emp.task_count else 0 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: {{ (emp.completed_count / emp.task_count * 100) if emp.task_count > 0 else 0 }}%"></div>
+                                        <span class="progress-text">{{ ((emp.completed_count / emp.task_count * 100) if emp.task_count > 0 else 0)|int }}%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('update_employee_target', employee_id=emp.id) }}" method="POST" class="target-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="number" name="target_tasks" value="{{ emp.target_tasks if emp.target_tasks else 5 }}" min="1" max="100" class="target-input" title="الهدف الشهري" onchange="this.form.submit()">
+                                    </form>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <a href="{{ url_for('employee_dashboard', employee_id=emp.id) }}" class="btn btn-small" style="background: #E8F5E9; color: #2E7D32;" title="لوحة تفصيلية"><i class="fas fa-chart-line"></i></a>
+                                        <a href="{{ url_for('employee_tasks', employee_id=emp.id) }}" class="btn btn-small" style="background: #E3F2FD; color: #1976D2;"><i class="fas fa-eye"></i></a>
+                                        <a href="#" onclick="openEditModal('{{ emp.id }}', '{{ emp.name }}', '{{ emp.username }}', '{{ emp.role }}', '{{ emp.email or '' }}'); return false;" class="btn btn-small" style="background: #FFF3E0; color: #F57C00;"><i class="fas fa-edit"></i></a>
+                                        <form method="POST" action="{{ url_for('delete_employee', employee_id=emp.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الموظف؟');" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-small" style="background: #FFEBEE; color: #C62828;"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-users" style="font-size: 60px; color: var(--border); margin-bottom: 20px;"></i>
+                    <h3>لا يوجد موظفين</h3>
+                    <p>أضف موظفين جدد للبدء</p>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if trainees_list %}
+            <div class="table-card">
+                <h3><i class="fas fa-user-graduate"></i> المتدربون</h3>
+                <div class="employee-table-wrap">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>المستخدم</th>
+                                <th>المهام</th>
+                                <th>الإنجاز</th>
+                                <th>الهدف</th>
+                                <th>التحكم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tr in trainees_list %}
+                            <tr>
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar" style="background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);"><i class="fas fa-user-graduate"></i></div>
+                                        <span>{{ tr.name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ tr.username }}</td>
+                                <td>
+                                    <div class="task-count-badge">
+                                        <span class="completed">{{ tr.completed_count if tr.completed_count else 0 }}</span>
+                                        <span class="separator">/</span>
+                                        <span class="total">{{ tr.task_count if tr.task_count else 0 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: {{ (tr.completed_count / tr.task_count * 100) if tr.task_count and tr.task_count > 0 else 0 }}%"></div>
+                                        <span class="progress-text">{{ ((tr.completed_count / tr.task_count * 100) if tr.task_count and tr.task_count > 0 else 0)|int }}%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('update_employee_target', employee_id=tr.id) }}" method="POST" class="target-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="number" name="target_tasks" value="{{ tr.target_tasks if tr.target_tasks else 5 }}" min="1" max="100" class="target-input" onchange="this.form.submit()">
+                                    </form>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <a href="{{ url_for('employee_dashboard', employee_id=tr.id) }}" class="btn btn-small" style="background: #E8F5E9; color: #2E7D32;" title="لوحة تفصيلية"><i class="fas fa-chart-line"></i></a>
+                                        <a href="{{ url_for('employee_tasks', employee_id=tr.id) }}" class="btn btn-small" style="background: #E3F2FD; color: #1976D2;"><i class="fas fa-eye"></i></a>
+                                        <a href="#" onclick="openEditModal('{{ tr.id }}', '{{ tr.name }}', '{{ tr.username }}', '{{ tr.role }}', '{{ tr.email or '' }}'); return false;" class="btn btn-small" style="background: #FFF3E0; color: #F57C00;"><i class="fas fa-edit"></i></a>
+                                        <form method="POST" action="{{ url_for('delete_employee', employee_id=tr.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا المتدرب؟');" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-small" style="background: #FFEBEE; color: #C62828;"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+    
+    <!-- Add Employee Modal -->
+    <div id="addEmployeeModal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'addEmployeeModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3><i class="fas fa-user-plus"></i> إضافة مستخدم جديد</h3>
+            <form method="POST" action="{{ url_for('employees') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> الاسم الكامل</label>
+                    <input type="text" name="name" required placeholder="أدخل الاسم الكامل">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> اسم المستخدم</label>
+                    <input type="text" name="username" required placeholder="أدخل اسم المستخدم">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-at"></i> البريد الإلكتروني (للاستلام الإشعارات)</label>
+                    <input type="email" name="email" placeholder="example@company.com">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> كلمة المرور</label>
+                    <input type="password" name="password" required placeholder="أدخل كلمة المرور">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-user-tag"></i> نوع المستخدم</label>
+
+                        <select name="user_type" required>
+                            {% if can_manage_system %}
+                            <option value="مدير">مدير</option>
+                            {% endif %}
+                            <option value="موظف">موظف</option>
+                            <option value="مشرف">مشرف</option>
+                            <option value="متدرب">متدرب</option>
+                        </select>
+                </div>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> إضافة</button>
+                    <button type="button" onclick="closeModal('addEmployeeModal')" class="btn btn-danger"><i class="fas fa-times"></i> إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Edit Employee Modal -->
+    <div id="editEmployeeModal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'editEmployeeModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3><i class="fas fa-user-edit"></i> تعديل بيانات الموظف</h3>
+            <form method="POST" action="{{ url_for('edit_employee') }}">
+                <input type="hidden" name="employee_id" id="editEmployeeId">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> الاسم الكامل</label>
+                    <input type="text" name="name" id="editEmployeeName" required placeholder="أدخل الاسم الكامل">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> اسم المستخدم</label>
+                    <input type="text" name="username" id="editEmployeeUsername" required placeholder="أدخل اسم المستخدم">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-at"></i> البريد الإلكتروني</label>
+                    <input type="email" name="email" id="editEmployeeEmail" placeholder="example@company.com">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> كلمة المرور الجديدة (اتركها فارغة إذا لا تريد تغييرها)</label>
+                    <input type="password" name="password" placeholder="أدخل كلمة المرور الجديدة">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-user-tag"></i> نوع المستخدم</label>
+                <select name="user_type" id="editEmployeeRole" required>
+                            {% if can_manage_system %}
+                            <option value="مدير">مدير</option>
+                            {% endif %}
+                            <option value="موظف">موظف</option>
+                            <option value="مشرف">مشرف</option>
+                            <option value="متدرب">متدرب</option>
+                        </select>
+                </div>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> حفظ التغييرات</button>
+                    <button type="button" onclick="closeModal('editEmployeeModal')" class="btn btn-danger"><i class="fas fa-times"></i> إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+    function openEditModal(id, name, username, role, email) {
+        document.getElementById('editEmployeeId').value = id;
+        document.getElementById('editEmployeeName').value = name;
+        document.getElementById('editEmployeeUsername').value = username;
+        document.getElementById('editEmployeeRole').value = role;
+        var emailEl = document.getElementById('editEmployeeEmail');
+        if (emailEl) emailEl.value = email || '';
+        openModal('editEmployeeModal');
+    }
+    </script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openEditModal(id, name, username, role, email) {
+    document.getElementById('editEmployeeId').value = id;
+    document.getElementById('editEmployeeName').value = name;
+    document.getElementById('editEmployeeUsername').value = username;
+    document.getElementById('editEmployeeRole').value = role;
+    var emailEl = document.getElementById('editEmployeeEmail');
+    if (emailEl) emailEl.value = email || '';
+    openModal('editEmployeeModal');
+}
+</script>
+{% endblock %}
+

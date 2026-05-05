@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}لوحتي - إدارة المهام{% endblock %}
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+{% block content %}
+            <div class="header">
+                <h1><i class="fas fa-chart-line" style="color: var(--primary); margin-left: 10px;"></i> لوحتي — الإنجاز الشهري</h1>
+            </div>
+
+            <!-- Quick Search -->
+            <div class="quick-search-wrap">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="quickSearch" placeholder="بحث سريع في المهام..." autocomplete="off">
+            </div>
+            <div id="quickSearchResults" style="margin-top: 8px; display: none;"></div>
+
+            <!-- Target vs Achieved Bar -->
+            <div class="chart-card" style="margin-bottom: 24px;">
+                <h3><i class="fas fa-bullseye"></i> المستهدف الشهري مقابل المنفذ</h3>
+                <div class="progress-header" style="margin-bottom: 8px;">
+                    <span>المنجز: {{ completed_this_month }} / المستهدف: {{ target }}</span>
+                    <span class="progress-value">{{ ((completed_this_month / target * 100) if target > 0 else 0) | int }}%</span>
+                </div>
+                <div class="progress-track" style="height: 28px; border-radius: 14px;">
+                    <div class="progress-fill" style="width: {{ [100, (completed_this_month / target * 100) if target > 0 else 0] | min }}%; border-radius: 14px;"></div>
+                </div>
+            </div>
+
+            <!-- Counts: Completed, Overdue, Pending -->
+            <div class="stats-grid" style="margin-bottom: 24px;">
+                <a href="{{ url_for('tasks') }}?status=مكتملة" class="stat-card">
+                    <div class="icon green"><i class="fas fa-check-circle"></i></div>
+                    <div class="value">{{ completed }}</div>
+                    <div class="label">المهام المنجزة</div>
+                </a>
+                <a href="{{ url_for('tasks') }}" class="stat-card">
+                    <div class="icon red"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="value">{{ overdue }}</div>
+                    <div class="label">المهام المتأخرة</div>
+                </a>
+                <a href="{{ url_for('tasks') }}?status=معلقة" class="stat-card">
+                    <div class="icon orange"><i class="fas fa-clock"></i></div>
+                    <div class="value">{{ pending }}</div>
+                    <div class="label">المهام المعلقة</div>
+                </a>
+                <a href="{{ url_for('tasks') }}?status=قيد التنفيذ" class="stat-card">
+                    <div class="icon purple"><i class="fas fa-spinner"></i></div>
+                    <div class="value">{{ in_progress }}</div>
+                    <div class="label">قيد التنفيذ</div>
+                </a>
+            </div>
+
+            <!-- Achievement: Pie + Line -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> نسبة الإنجاز (توزيع الحالات)</h3>
+                    <div class="chart-container" style="height: 240px;">
+                        <canvas id="myPieChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-line"></i> نسبة الإنجاز (خطي)</h3>
+                    <div class="chart-container" style="height: 240px;">
+                        <canvas id="myLineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Tasks List (short) -->
+            <div class="table-card">
+                <h3><i class="fas fa-list"></i> المهام المسندة</h3>
+                {% if tasks %}
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>العنوان</th><th>الحالة</th><th>الموعد</th><th></th></tr></thead>
+                        <tbody id="tasksTableBody">
+                            {% for t in tasks[:15] %}
+                            <tr>
+                                <td>{{ t.title }}</td>
+                                <td><span class="status-badge status-{{ 'pending' if t.status == 'معلقة' else 'progress' if t.status == 'قيد التنفيذ' else 'completed' }}">{{ t.status }}</span></td>
+                                <td>{{ t.due_date or '—' }}</td>
+                                <td><a href="{{ url_for('tasks') }}" class="btn btn-small">عرض</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if tasks|length > 15 %}<p style="margin-top: 12px;"><a href="{{ url_for('tasks') }}">عرض كل المهام</a></p>{% endif %}
+                {% else %}
+                <p style="color: var(--text-secondary);">لا توجد مهام معينة لك.</p>
+                {% endif %}
+            </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    var completed_this_month = {{ completed_this_month }};
+    var target = {{ target }};
+    (function() {
+        var completed = {{ completed }};
+        var overdue = {{ overdue }};
+        var pending = {{ pending }};
+        var inProgress = {{ in_progress }};
+        var total = completed + overdue + pending + inProgress;
+        if (total === 0) total = 1;
+        var labels = ['مكتملة', 'متأخرة', 'معلقة', 'قيد التنفيذ'];
+        var data = [completed, overdue, pending, inProgress];
+        var colors = ['#228B22', '#B22222', '#DAA520', '#7B1FA2'];
+        if (document.getElementById('myPieChart')) {
+            new Chart(document.getElementById('myPieChart'), {
+                type: 'pie',
+                data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: '#EFE3D3', borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', rtl: true } } }
+            });
+        }
+        if (document.getElementById('myLineChart')) {
+            var pct = target > 0 ? Math.round(completed_this_month / target * 100) : 0;
+            new Chart(document.getElementById('myLineChart'), {
+                type: 'line',
+                data: {
+                    labels: ['المستهدف 100%', 'إنجازك'],
+                    datasets: [{
+                        label: 'نسبة الإنجاز',
+                        data: [100, Math.min(100, pct)],
+                        borderColor: '#4A2A18',
+                        backgroundColor: 'rgba(74, 42, 24, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+            });
+        }
+    })();
+    </script>
+    <script>
+    document.getElementById('quickSearch').addEventListener('input', function() {
+        var q = this.value.trim();
+        var el = document.getElementById('quickSearchResults');
+        if (q.length < 1) { el.style.display = 'none'; el.innerHTML = ''; return; }
+        fetch('{{ url_for("my_dashboard_search") }}?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.tasks || d.tasks.length === 0) { el.innerHTML = '<p style="color: var(--text-secondary); padding: 12px;">لا توجد نتائج</p>'; el.style.display = 'block'; return; }
+                el.innerHTML = '<div class="card" style="padding: 12px;"><ul style="list-style: none; padding: 0; margin: 0;">' +
+                    d.tasks.map(function(t) { return '<li style="padding: 8px 0; border-bottom: 1px solid var(--border);"><a href="{{ url_for("tasks") }}">' + (t.title || '') + '</a> — ' + (t.status || '') + '</li>'; }).join('') +
+                    '</ul></div>';
+                el.style.display = 'block';
+            });
+    });
+    </script>
+{% endblock %}

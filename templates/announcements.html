@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}الإعلانات - إدارة المهام{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-bullhorn" style="color: var(--primary); margin-left: 10px;"></i> الإعلانات المهمة</h1>
+</div>
+
+{% if can_manage_announcements %}
+<div class="form-card" style="margin-bottom: 24px;">
+    <h3><i class="fas fa-plus-circle"></i> إضافة إعلان جديد</h3>
+    <form method="POST" action="{{ url_for('announcements_page') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label><i class="fas fa-heading"></i> العنوان</label>
+            <input type="text" name="title" required placeholder="عنوان الإعلان">
+        </div>
+        <div class="form-group">
+            <label><i class="fas fa-align-right"></i> المحتوى</label>
+            <textarea name="content" rows="4" required placeholder="نص الإعلان"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> نشر</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="table-card">
+    <h3><i class="fas fa-list"></i> الإعلانات المنشورة</h3>
+    {% if announcements %}
+    <ul class="activity-list">
+        {% for a in announcements %}
+        <li style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <strong>{{ a.title }}</strong>
+                <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ a.content[:120] }}{% if a.content|length > 120 %}...{% endif %}</p>
+                <small style="color: var(--text-secondary);">بواسطة {{ a.created_by_name or '—' }} — {{ a.created_at }}</small>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-start;">
+                {% if a.is_active %}
+                <span class="status-badge status-completed">نشط</span>
+                {% if can_manage_announcements %}
+                <form method="POST" action="{{ url_for('announcement_toggle', aid=a.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-small">إخفاء</button>
+                </form>
+                {% endif %}
+                {% else %}
+                <span class="status-badge status-pending">معطل</span>
+                {% if can_manage_announcements %}
+                <form method="POST" action="{{ url_for('announcement_toggle', aid=a.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-small btn-success">تفعيل</button>
+                </form>
+                {% endif %}
+                {% endif %}
+
+                {% if can_manage_announcements %}
+                <a href="{{ url_for('announcement_edit', aid=a.id) }}" class="btn btn-small" style="background: #FFF3E0; color: #F57C00;">
+                    <i class="fas fa-edit"></i> تعديل
+                </a>
+
+                <form method="POST" action="{{ url_for('announcement_delete', aid=a.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الإعلان؟');" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-small btn-danger" style="background: #FFEBEE; color: #C62828;">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+        <i class="fas fa-bullhorn" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+        <h3>لا توجد إعلانات حالياً</h3>
+        <p>ابدأ بإضافة إعلان جديد ليراه الجميع</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

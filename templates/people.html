@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}الفريق والصلاحيات - إدارة المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { position: relative; }
+    .dashboard-container { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+    .sidebar { width: 260px; background: var(--nav-bg); padding: 20px 16px; border-left: 1px solid var(--nav-border); }
+    .main-content { flex: 1; padding: 20px; padding-bottom: 80px; }
+    .perm-card { background: var(--cream); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+    .perm-card h4 { color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .perm-card ul { margin: 0; padding-right: 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.8; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+            <div class="header">
+                <h1><i class="fas fa-users-cog" style="color: var(--primary); margin-left: 10px;"></i> الفريق والصلاحيات</h1>
+            </div>
+
+            <!-- Permissions -->
+            <div class="card" style="margin-bottom: 28px;">
+                <h3 class="section-title"><i class="fas fa-key"></i> صلاحيات الأدوار</h3>
+                <div class="perm-card">
+                    <h4><i class="fas fa-user-cog"></i> مسؤول النظام</h4>
+                    <ul>
+                        <li>كل صلاحيات المدير + إدارة حسابات المديرين، إعدادات النظام، وعرض كل البيانات.</li>
+                    </ul>
+                </div>
+                <div class="perm-card">
+                    <h4><i class="fas fa-user-tie"></i> المدير</h4>
+                    <ul>
+                        <li>إدارة الموظفين والمشرفين والمتدربين (إضافة/تعديل/حذف).</li>
+                        <li>عرض وإدارة كل المهام، تعيين المهام لأي عضو.</li>
+                        <li>عرض التقارير، الإعلانات، سجل النشاط، وأكثر موظف إنجازاً.</li>
+                    </ul>
+                </div>
+                <div class="perm-card">
+                    <h4><i class="fas fa-user-shield"></i> المشرف</h4>
+                    <ul>
+                        <li>عرض المهام (جميع المهام أو فريقه حسب الإعداد).</li>
+                        <li>إضافة مهام وتعيينها للفريق.</li>
+                        <li>لا يصلح له حذف مستخدمين أو إدارة الإعلانات.</li>
+                    </ul>
+                </div>
+                <div class="perm-card">
+                    <h4><i class="fas fa-user"></i> الموظف</h4>
+                    <ul>
+                        <li>عرض وتحديث مهامه فقط، لوحته الشخصية (الإنجاز الشهري، البحث السريع).</li>
+                        <li>لا يصلح له إدارة المستخدمين أو الإعلانات أو سجل النشاط الكامل.</li>
+                    </ul>
+                </div>
+                <div class="perm-card">
+                    <h4><i class="fas fa-user-graduate"></i> المتدرب</h4>
+                   <ul>
+                        <li>عرض وتحديث مهامه فقط، لوحته الشخصية (الإنجاز الشهري، البحث السريع).</li>
+                        <li>لا يصلح له إدارة المستخدمين أو الإعلانات أو سجل النشاط الكامل.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Lists: Managers (if system admin), Supervisors, Employees, Trainees -->
+            {% if can_manage_system and managers %}
+            <div class="table-card">
+                <h3><i class="fas fa-user-tie"></i> المديرون</h3>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>المستخدم</th><th>المهام</th></tr></thead>
+                        <tbody>
+                            {% for m in managers %}
+                            <tr><td>{{ m.name }}</td><td>{{ m.username }}</td><td>{{ m.task_count or 0 }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="table-card">
+                <h3><i class="fas fa-user-shield"></i> المشرفون</h3>
+                {% if supervisors %}
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>المستخدم</th><th>المهام</th><th>الإنجاز</th><th>لوحة</th></tr></thead>
+                        <tbody>
+                            {% for s in supervisors %}
+                            <tr>
+                                <td>{{ s.name }}</td>
+                                <td>{{ s.username }}</td>
+                                <td>{{ s.task_count or 0 }}</td>
+                                <td>{{ (s.completed_count or 0) }}/{{ (s.task_count or 0) }}</td>
+                                <td><a href="{{ url_for('employee_dashboard', employee_id=s.id) }}" class="btn btn-small"><i class="fas fa-chart-line"></i></a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="color: var(--text-secondary);">لا يوجد مشرفون.</p>
+                {% endif %}
+            </div>
+
+            <div class="table-card">
+                <h3><i class="fas fa-user"></i> الموظفون</h3>
+                {% if employees %}
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>المستخدم</th><th>المهام</th><th>الإنجاز</th><th>لوحة</th></tr></thead>
+                        <tbody>
+                            {% for e in employees %}
+                            <tr>
+                                <td>{{ e.name }}</td>
+                                <td>{{ e.username }}</td>
+                                <td>{{ e.task_count or 0 }}</td>
+                                <td>{{ (e.completed_count or 0) }}/{{ (e.task_count or 0) }}</td>
+                                <td><a href="{{ url_for('employee_dashboard', employee_id=e.id) }}" class="btn btn-small"><i class="fas fa-chart-line"></i></a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="color: var(--text-secondary);">لا يوجد موظفون.</p>
+                {% endif %}
+            </div>
+
+            <div class="table-card">
+                <h3><i class="fas fa-user-graduate"></i> المتدربون</h3>
+                {% if trainees %}
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>المستخدم</th><th>المهام</th><th>الإنجاز</th><th>لوحة</th></tr></thead>
+                        <tbody>
+                            {% for t in trainees %}
+                            <tr>
+                                <td>{{ t.name }}</td>
+                                <td>{{ t.username }}</td>
+                                <td>{{ t.task_count or 0 }}</td>
+                                <td>{{ (t.completed_count or 0) }}/{{ (t.task_count or 0) }}</td>
+                                <td><a href="{{ url_for('employee_dashboard', employee_id=t.id) }}" class="btn btn-small"><i class="fas fa-chart-line"></i></a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="color: var(--text-secondary);">لا يوجد متدربون.</p>
+                {% endif %}
+{% endblock %}
+
+

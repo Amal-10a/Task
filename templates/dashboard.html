@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم - إدارة المهام{% endblock %}
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .top-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); }
+    .notification-bell { position: relative; }
+    .notification-badge { position: absolute; top: -8px; left: -8px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+            <!-- Manager Top Bar -->
+           
+            
+            <div class="header">
+                <h1><i class="fas fa-wave-square" style="color: var(--primary); margin-left: 10px;"></i> مرحباً، <span>{{ user.name }}</span></h1>
+            </div>
+
+            <!-- Announcement Banner - Marquee -->
+            {% if announcements %}
+            <div class="announcement-banner-wrap">
+                <div class="announcement-marquee" id="announcementMarquee">
+                    <div class="announcement-marquee__track">
+                        {% for ann in announcements %}
+                        <div class="announcement-item">
+                            <h4><i class="fas fa-bullhorn" style="color: #A57A5A;"></i> {{ ann.title }}</h4>
+                            <p>{{ ann.content }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <a href="{{ url_for('tasks') }}" class="btn btn-primary"><i class="fas fa-plus"></i> إضافة مهمة جديدة</a>
+                {% if can_manage_users %}
+                <a href="{{ url_for('employees') }}" class="btn btn-success"><i class="fas fa-user-plus"></i> إضافة مستخدم</a>
+                {% endif %}
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <a href="{{ url_for('tasks') }}" class="stat-card">
+                    <div class="icon blue"><i class="fas fa-list-alt"></i></div>
+                    <div class="value">{{ stats.total_tasks }}</div>
+                    <div class="label">إجمالي المهام</div>
+                </a>
+                <a href="{{ url_for('tasks') }}?status=معلقة" class="stat-card">
+                    <div class="icon orange"><i class="fas fa-clock"></i></div>
+                    <div class="value">{{ stats.pending_tasks }}</div>
+                    <div class="label">مهام معلقة</div>
+                </a>
+                <a href="{{ url_for('tasks') }}?status=قيد التنفيذ" class="stat-card">
+                    <div class="icon purple"><i class="fas fa-spinner"></i></div>
+                    <div class="value">{{ stats.in_progress_tasks }}</div>
+                    <div class="label">قيد التنفيذ</div>
+                </a>
+                <a href="{{ url_for('tasks') }}?status=مكتملة" class="stat-card">
+                    <div class="icon green"><i class="fas fa-check-circle"></i></div>
+                    <div class="value">{{ stats.completed_tasks }}</div>
+                    <div class="label">مكتملة</div>
+                </a>
+                {% if stats.get('overdue_tasks') is not none %}
+                <a href="{{ url_for('tasks') }}" class="stat-card">
+                    <div class="icon red"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="value">{{ stats.overdue_tasks }}</div>
+                    <div class="label">متأخرة</div>
+                </a>
+                {% endif %}
+                {% if can_manage_users %}
+                <a href="{{ url_for('employees') }}" class="stat-card">
+                    <div class="icon blue"><i class="fas fa-users"></i></div>
+                    <div class="value">{{ stats.total_employees + stats.total_supervisors + stats.total_trainees }}</div>
+                    <div class="label">الفريق</div>
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Charts: Pie + Bar -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> توزيع حالة المهام</h3>
+                    <div class="chart-container">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar"></i> الإنجاز الشهري (آخر 6 أشهر)</h3>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Performer This Month -->
+            {% if top_performer %}
+            <div class="top-performer-card">
+                <h3 class="section-title"><i class="fas fa-trophy" style="color: var(--primary);"></i> أكثر موظف إنجازاً هذا الشهر</h3>
+                <p style="font-size: 18px; font-weight: 600; color: var(--text); margin: 0;">
+                    <i class="fas fa-user-check" style="color: var(--primary);"></i> {{ top_performer.name }} — {{ top_performer.completed_count }} مهمة مكتملة
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Recent Activity (Manager) -->
+            {% if can_see_activity and recent_activity %}
+            <div class="card">
+                <h3 class="section-title"><i class="fas fa-history"></i> آخر النشاط (من قام به)</h3>
+                <ul class="activity-list">
+                    {% for act in recent_activity %}
+                    <li>
+                        <span class="who">{{ act.user_name or 'نظام' }}</span>
+                        <span>{{ act.action }}{% if act.details %} — {{ act.details }}{% endif %}</span>
+                        <span style="color: var(--text-secondary); font-size: 11px;">{{ act.created_at }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <a href="{{ url_for('activity_page') }}" class="btn btn-small btn-outline" style="margin-top: 12px;">عرض الكل</a>
+            </div>
+            {% endif %}
+
+            <!-- Alerts -->
+            {% if alerts.expiring or alerts.overdue or escalations %}
+            <div class="alerts-section">
+                <h3 class="section-title"><i class="fas fa-bell"></i> التنبيهات</h3>
+                {% for task in alerts.overdue %}
+                <div class="alert-card danger">
+                    <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div>
+                        <h4>مهمة متأخرة: {{ task.title }}</h4>
+                        <p><i class="fas fa-user"></i> {{ task.assigned_to_name }} | <i class="fas fa-calendar-alt"></i> الموعد كان: {{ task.due_date }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% for task in alerts.expiring %}
+                <div class="alert-card warning">
+                    <div class="alert-icon"><i class="fas fa-clock"></i></div>
+                    <div>
+                        <h4>مهمة تنتهي قريباً: {{ task.title }}</h4>
+                        <p><i class="fas fa-user"></i> {{ task.assigned_to_name }} | <i class="fas fa-calendar-alt"></i> الموعد: {{ task.due_date }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% for escalation in escalations %}
+                <div class="alert-card danger escalation-alert">
+                    <div class="alert-icon"><i class="fas fa-arrow-up"></i></div>
+                    <div>
+                        <h4><i class="fas fa-exclamation-circle"></i> تصعيد عاجل: مهمة متأخرة</h4>
+                        <p><strong>المهمة:</strong> {{ escalation.task_title }}</p>
+                        <p><i class="fas fa-user"></i> الموظف: {{ escalation.employee_name }} ({{ escalation.employee_username }})</p>
+                        <p><i class="fas fa-calendar-alt"></i> الموعد كان: {{ escalation.due_date }} {% if escalation.due_time %}- {{ escalation.due_time }}{% endif %}</p>
+                        <a href="{{ url_for('tasks') }}" class="btn btn-small" style="background: var(--danger); color: white; margin-top: 8px; display: inline-block;"><i class="fas fa-eye"></i> عرض المهمة</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const chartData = {{ chart_data | tojson | safe }};
+const statusLabels = { 'معلقة': 'معلقة', 'قيد التنفيذ': 'قيد التنفيذ', 'مكتملة': 'مكتملة' };
+const statusColors = ['#A57A5A', '#D8C3A8', '#228B22'];
+const statusBg = ['#4A2A18', '#8B6914', '#1e7d32'];
+const statusCounts = chartData.status_counts || [];
+const pieLabels = statusCounts.map(function(c) { return statusLabels[c.status] || c.status; });
+const pieValues = statusCounts.map(function(c) { return c.cnt; });
+const pieColors = statusCounts.map(function(_, i) { return statusBg[i % 3] || statusColors[i % 3]; });
+
+if (document.getElementById('pieChart') && (pieValues.length > 0 || chartData.total_tasks === 0)) {
+    if (pieValues.length === 0) { pieLabels.push('لا مهام'); pieValues.push(1); pieColors.push('#E6D4BF'); }
+    new Chart(document.getElementById('pieChart'), {
+        type: 'pie',
+        data: {
+            labels: pieLabels,
+            datasets: [{ data: pieValues, backgroundColor: pieColors, borderColor: '#EFE3D3', borderWidth: 2 }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', rtl: true } }
+        }
+    });
+}
+
+const monthlyData = chartData.monthly_completed || [];
+if (document.getElementById('barChart')) {
+    new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+            labels: monthlyData.map(function(m) { return m.month; }),
+            datasets: [{
+                label: 'مهام مكتملة',
+                data: monthlyData.map(function(m) { return m.cnt; }),
+                backgroundColor: '#A57A5A',
+                borderColor: '#4A2A18',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+{% extends 'base.html' %}
+
+{% block title %}خطأ داخلي في الخادم - مدير المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+  .error-hero {
+    background: linear-gradient(135deg, var(--danger), #c0392b);
+    color: white;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(231, 76, 60, 0.3);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-lg border-0">
+        <div class="card-body text-center p-5">
+          <div class="error-hero mb-4">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block"></i>
+            <h1 class="mb-0">500</h1>
+            <h3>خطأ داخلي في الخادم</h3>
+          </div>
+          <p class="lead text-muted mb-4">{{ error_msg or 'حدث خطأ غير متوقع. نحن نعمل على حله.' }}</p>
+          <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+              <i class="fas fa-home me-2"></i>الرئيسية
+            </a>
+            <button class="btn btn-outline-secondary btn-lg" onclick="window.location.reload()">
+              <i class="fas fa-redo me-2"></i>إعادة تحميل
+            </button>
+          </div>
+          <hr class="my-5">
+          <small class="text-muted">
+            إذا استمر الخطأ، <a href="mailto:admin@taskmanager.local">اتصل بالإدارة</a> مع رمز الخطأ: <strong id="error-id">{{ error_id or 'غير متوفر' }}</strong>.
+            <br>تم تسجيل الخطأ للمراجعة.
+          </small>
+          <script>
+            // Copy error ID to clipboard
+            document.addEventListener('DOMContentLoaded', function() {
+              const errorId = document.getElementById('error-id');
+              if (errorId) {
+                errorId.addEventListener('click', function() {
+                  navigator.clipboard.writeText(this.textContent).then(() => {
+                    const original = this.textContent;
+                    this.textContent = 'تم النسخ!';
+                    setTimeout(() => { this.textContent = original; }, 2000);
+                  });
+                });
+              }
+            });
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

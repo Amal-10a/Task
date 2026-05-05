@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}مسؤول النظام - إدارة المهام{% endblock %}
+{% block extra_css %}
+<style>
+.tab-container { display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tab-container::-webkit-scrollbar { display: none; }
+.tab { padding: 12px 24px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px 12px 0 0; cursor: pointer; transition: all 0.3s; white-space: nowrap; flex-shrink: 0; }
+.tab.active { background: var(--primary); color: white; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.stats-grid-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.user-table-container { max-height: 500px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table th, .user-table td { padding: 12px; text-align: right; border-bottom: 1px solid var(--border); }
+.user-table th { background: var(--nav-bg); position: sticky; top: 0; }
+.role-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.role-sysadmin { background: #8B0000; color: white; }
+.role-manager { background: #DAA520; color: black; }
+.role-supervisor { background: #4169E1; color: white; }
+.role-employee { background: #228B22; color: white; }
+.role-trainee { background: #FF8C00; color: black; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-crown" style="color: #8B0000; margin-left: 10px;"></i> لوحة مسؤول النظام</h1>
+    <p>إدارة كاملة للنظام، المديرين، والكل</p>
+</div>
+
+<!-- Tabs -->
+<div class="tab-container">
+    <div class="tab active" onclick="switchTab(this,'users')">كل المستخدمين</div>
+    <div class="tab" onclick="switchTab(this,'stats')">إحصائيات النظام</div>
+    <div class="tab" onclick="switchTab(this,'activity')">سجل النشاط الكامل</div>
+    <div class="tab" onclick="switchTab(this,'data')">كل البيانات</div>
+</div>
+
+<!-- Users Tab -->
+<div id="users" class="tab-content active">
+    <div class="table-card">
+        <h3>قائمة كاملة بالمستخدمين (مديرين + موظفين)</h3>
+        <div class="user-table-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>المستخدم</th>
+                        <th>الدور</th>
+                        <th>المهام</th>
+                        <th>مكتملة</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in all_users %}
+                    <tr>
+                        <td>{{ u.name }}</td>
+                        <td>{{ u.username }}</td>
+                        <td>
+                            <span class="role-badge role-{{ u.role|lower|replace(' ', '-')|replace('_النظام', 'sysadmin')|replace('مدير', 'manager')|replace('مشرف', 'supervisor')|replace('موظف', 'employee')|replace('متدرب', 'trainee') }}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td>{{ u.task_count or 0 }}</td>
+                        <td>{{ u.completed_count or 0 }}</td>
+                        <td>{{ u.created_at[:10] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="btn-group" style="margin-top: 16px;">
+            <a href="{{ url_for('people_page') }}" class="btn btn-primary"><i class="fas fa-users-cog"></i> صلاحيات الفريق</a>
+            <a href="{{ url_for('employees') }}" class="btn btn-success"><i class="fas fa-user-plus"></i> إدارة المديرين والموظفين</a>
+            <a href="{{ url_for('announcements_page') }}" class="btn btn-info"><i class="fas fa-bullhorn"></i> الإعلانات</a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Tab -->
+<div id="stats" class="tab-content">
+    <div class="stats-grid-admin">
+        <div class="stat-card">
+            <div class="icon blue"><i class="fas fa-users"></i></div>
+            <div class="value">{{ stats.total_users }}</div>
+            <div class="label">إجمالي المستخدمين</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon green"><i class="fas fa-tasks"></i></div>
+            <div class="value">{{ stats.total_tasks }}</div>
+            <div class="label">إجمالي المهام</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon orange"><i class="fas fa-user-tie"></i></div>
+            <div class="value">{{ stats.managers_count }}</div>
+            <div class="label">عدد المديرين</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon purple"><i class="fas fa-bullhorn"></i></div>
+            <div class="value">{{ stats.active_announcements }}</div>
+            <div class="label">إعلانات نشطة</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon red"><i class="fas fa-envelope"></i></div>
+            <div class="value">{{ stats.total_notifications }}</div>
+            <div class="label">إشعارات</div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Tab -->
+<div id="activity" class="tab-content">
+    <div class="card">
+        <h3>سجل النشاط الكامل (50 آخر)</h3>
+        <ul class="activity-list">
+            {% for act in activity %}
+            <li>
+                <span class="who">{{ act.user_name or 'نظام' }}</span>
+                <span>{{ act.action }}{% if act.details %} — {{ act.details }}{% endif %}</span>
+                <span style="color: var(--text-secondary); font-size: 11px;">{{ act.created_at }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <a href="{{ url_for('activity_page') }}" class="btn btn-small btn-outline">عرض المزيد</a>
+    </div>
+</div>
+
+<!-- All Data Tab -->
+<div id="data" class="tab-content">
+    <div class="card">
+        <h3>وصول كامل للبيانات</h3>
+        <p>يمكنك الوصول لكل صفحات النظام:</p>
+        <div style="display: grid; gap: 12px; margin-top: 16px;">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">لوحة التحكم العامة</a>
+            <a href="{{ url_for('tasks') }}" class="btn btn-success">كل المهام</a>
+            <a href="{{ url_for('people_page') }}" class="btn btn-info">الفريق والصلاحيات</a>
+            <a href="{{ url_for('activity_page') }}" class="btn btn-warning">سجل النشاط</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(el, tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
+</script>
+{% endblock %}
