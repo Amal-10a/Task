@@ -1,9 +1,73 @@
 {% extends "base.html" %}
 {% block title %}لوحة الموظف - إدارة المهام{% endblock %}
 
+{% block extra_css %}
+<style>
+.ach-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+}
+.ach-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+}
+.ach-box-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ach-box-nums {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.ach-big { font-size: 36px; font-weight: 800; color: var(--primary); }
+.ach-slash { font-size: 20px; color: var(--border); }
+.ach-target { font-size: 18px; color: var(--text-secondary); }
+.ach-pct-badge {
+    margin-right: auto;
+    background: var(--primary);
+    color: #fff;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.ach-track {
+    height: 12px;
+    background: var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.ach-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+.fill-low  { background: linear-gradient(90deg,#e74c3c,#c0392b); }
+.fill-mid  { background: linear-gradient(90deg,#f39c12,#e67e22); }
+.fill-high { background: linear-gradient(90deg,#27ae60,#2ecc71); }
+.fill-full { background: linear-gradient(90deg,var(--primary),#c89a6a); }
+.ach-meta  { font-size: 11px; color: var(--text-secondary); display:flex; justify-content:space-between; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="header">
-    <h1><i class="fas fa-chart-line" style="color: var(--primary); margin-left: 10px;"></i> لوحة الموظف: <span>{{ employee.name }}</span></h1>
+    <h1><i class="fas fa-chart-line" style="color: var(--primary); margin-left: 10px;"></i>
+        لوحة الموظف: <span>{{ employee.name }}</span>
+    </h1>
+    <p style="color:var(--text-secondary);font-size:13px;">{{ employee.role }} — {{ employee.username }}</p>
 </div>
 
 <div class="quick-actions">
@@ -15,6 +79,7 @@
     </a>
 </div>
 
+<!-- Stats cards -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="icon blue"><i class="fas fa-list-check"></i></div>
@@ -24,7 +89,7 @@
     <div class="stat-card">
         <div class="icon green"><i class="fas fa-check-circle"></i></div>
         <div class="value">{{ stats.completed_tasks }}</div>
-        <div class="label">مهام مكتملة</div>
+        <div class="label">مكتملة</div>
     </div>
     <div class="stat-card">
         <div class="icon purple"><i class="fas fa-spinner"></i></div>
@@ -43,29 +108,90 @@
     </div>
 </div>
 
-<div class="charts-row">
-    <div class="chart-card">
-        <h3><i class="fas fa-bullseye"></i> إنجاز الشهر مقابل المستهدف</h3>
-        <div class="progress-header" style="margin-bottom: 8px;">
-            <span>المنجز هذا الشهر: {{ monthly_completed }} / المستهدف: {{ target }}</span>
-            <span class="progress-value">{{ [100, monthly_target_rate] | min }}%</span>
+<!-- ── Achievement: Monthly + Quarterly ──────────────── -->
+<div class="ach-section">
+
+    <!-- Monthly -->
+    <div class="ach-box">
+        <div class="ach-box-title">
+            <i class="fas fa-calendar-alt" style="color:var(--primary);"></i>
+            الإنجاز الشهري — {{ this_month }}
         </div>
-        <div class="progress-track" style="height: 26px; border-radius: 14px;">
-            <div class="progress-fill" style="width: {{ [100, monthly_target_rate] | min }}%; border-radius: 14px;"></div>
+        <div class="ach-box-nums">
+            <div class="ach-big">{{ monthly_completed }}</div>
+            <div class="ach-slash">/</div>
+            <div class="ach-target">{{ target }}</div>
+            <span class="ach-pct-badge">{{ monthly_pct }}%</span>
+        </div>
+        <div class="ach-track">
+            <div class="ach-fill
+                {% if monthly_pct >= 100 %}fill-full
+                {% elif monthly_pct >= 60 %}fill-high
+                {% elif monthly_pct >= 30 %}fill-mid
+                {% else %}fill-low{% endif %}"
+                data-pct="{{ monthly_pct }}"></div>
+        </div>
+        <div class="ach-meta">
+            <span>{{ monthly_completed }} مكتملة هذا الشهر</span>
+            <span>هدف {{ target }} مهمة</span>
         </div>
     </div>
-    <div class="chart-card">
-        <h3><i class="fas fa-chart-pie"></i> نسبة إنجاز عامة</h3>
-        <div class="progress-header" style="margin-bottom: 8px;">
-            <span>مكتمل من إجمالي المهام</span>
-            <span class="progress-value">{{ completion_rate }}%</span>
+
+    <!-- Quarterly -->
+    <div class="ach-box">
+        <div class="ach-box-title">
+            <i class="fas fa-chart-pie" style="color:var(--primary);"></i>
+            الإنجاز الربعي — الربع {{ quarter_name }} {{ this_year }}
         </div>
-        <div class="progress-track" style="height: 26px; border-radius: 14px;">
-            <div class="progress-fill" style="width: {{ completion_rate }}%; border-radius: 14px;"></div>
+        <div class="ach-box-nums">
+            <div class="ach-big">{{ quarterly_completed }}</div>
+            <div class="ach-slash">/</div>
+            <div class="ach-target">{{ q_target }}</div>
+            <span class="ach-pct-badge">{{ quarterly_pct }}%</span>
+        </div>
+        <div class="ach-track">
+            <div class="ach-fill
+                {% if quarterly_pct >= 100 %}fill-full
+                {% elif quarterly_pct >= 60 %}fill-high
+                {% elif quarterly_pct >= 30 %}fill-mid
+                {% else %}fill-low{% endif %}"
+                data-pct="{{ quarterly_pct }}"></div>
+        </div>
+        <div class="ach-meta">
+            <span>{{ quarterly_completed }} مكتملة هذا الربع</span>
+            <span>هدف {{ q_target }} مهمة ({{ target }}×3)</span>
         </div>
     </div>
+
+    <!-- Overall completion rate -->
+    <div class="ach-box">
+        <div class="ach-box-title">
+            <i class="fas fa-chart-bar" style="color:var(--primary);"></i>
+            نسبة الإنجاز الكلية
+        </div>
+        <div class="ach-box-nums">
+            <div class="ach-big">{{ stats.completed_tasks }}</div>
+            <div class="ach-slash">/</div>
+            <div class="ach-target">{{ stats.total_tasks }}</div>
+            <span class="ach-pct-badge">{{ completion_rate }}%</span>
+        </div>
+        <div class="ach-track">
+            <div class="ach-fill
+                {% if completion_rate >= 100 %}fill-full
+                {% elif completion_rate >= 60 %}fill-high
+                {% elif completion_rate >= 30 %}fill-mid
+                {% else %}fill-low{% endif %}"
+                data-pct="{{ completion_rate }}"></div>
+        </div>
+        <div class="ach-meta">
+            <span>{{ stats.completed_tasks }} من إجمالي {{ stats.total_tasks }}</span>
+            <span>كل المهام</span>
+        </div>
+    </div>
+
 </div>
 
+<!-- Recent tasks -->
 <div class="table-card">
     <h3><i class="fas fa-history"></i> آخر مهام الموظف</h3>
     {% if recent_tasks %}
@@ -101,4 +227,10 @@
     <p style="color: var(--text-secondary);">لا توجد مهام لهذا الموظف حالياً.</p>
     {% endif %}
 </div>
+
+<script>
+document.querySelectorAll('[data-pct]').forEach(function(el) {
+    el.style.width = el.getAttribute('data-pct') + '%';
+});
+</script>
 {% endblock %}

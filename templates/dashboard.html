@@ -105,6 +105,55 @@
             </div>
             {% endif %}
 
+            <!-- ── Team Achievement (manager/supervisor) ── -->
+            {% if team_monthly %}
+            <div class="card" style="padding:0; overflow:hidden; margin-bottom:20px;">
+                <div style="padding:16px 20px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <h3 class="section-title" style="margin:0;">
+                        <i class="fas fa-chart-bar" style="color:var(--primary);"></i> إنجاز الفريق — الشهر الحالي
+                    </h3>
+                    {% if team_quarterly %}
+                    <span style="font-size:12px; color:var(--text-secondary);">
+                        الربع {{ team_quarterly.quarter_name }} {{ team_quarterly.year }} — إجمالي: {{ team_quarterly.org_total }} مكتملة
+                    </span>
+                    {% endif %}
+                </div>
+                <div style="padding:16px 20px; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px;">
+                    {% for emp in team_monthly %}
+                    <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div>
+                                <div style="font-weight:600; font-size:13px;">{{ emp.name }}</div>
+                                <div style="font-size:11px; color:var(--text-secondary);">{{ emp.role }}</div>
+                            </div>
+                            <span style="background:var(--primary); color:#fff; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700;">{{ emp.pct }}%</span>
+                        </div>
+                        <div style="height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-bottom:6px;">
+                            <div style="height:100%; border-radius:4px;
+                                background:{% if emp.pct >= 100 %}linear-gradient(90deg,var(--primary),#c89a6a){% elif emp.pct >= 60 %}linear-gradient(90deg,#27ae60,#2ecc71){% elif emp.pct >= 30 %}linear-gradient(90deg,#f39c12,#e67e22){% else %}linear-gradient(90deg,#e74c3c,#c0392b){% endif %};"
+                                data-pct="{{ emp.pct }}"></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary);">
+                            <span>{{ emp.completed }} مكتملة</span>
+                            <span>هدف {{ emp.target }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if team_quarterly and team_quarterly.mgmt_target > 0 %}
+                <div style="padding:0 20px 16px;">
+                    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">
+                        إنجاز الفريق الربعي — {{ team_quarterly.org_total }} / {{ team_quarterly.mgmt_target }}
+                    </div>
+                    <div style="height:10px; background:var(--border); border-radius:5px; overflow:hidden;">
+                        <div style="height:100%; border-radius:5px; background:linear-gradient(90deg,var(--primary),#c89a6a);"
+                             data-pct="{{ [100, (team_quarterly.org_total / team_quarterly.mgmt_target * 100)|int]|min }}"></div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- Recent Activity (Manager) -->
             {% if can_see_activity and recent_activity %}
             <div class="card">
@@ -162,6 +211,13 @@
 
 {% block extra_js %}
 <script>
+// Apply bar widths from data-pct attributes
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-pct]').forEach(function(el) {
+        el.style.width = el.getAttribute('data-pct') + '%';
+    });
+});
+
 const chartData = {{ chart_data | tojson | safe }};
 const statusLabels = { 'معلقة': 'معلقة', 'قيد التنفيذ': 'قيد التنفيذ', 'مكتملة': 'مكتملة' };
 const statusColors = ['#A57A5A', '#D8C3A8', '#228B22'];

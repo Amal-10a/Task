@@ -756,10 +756,20 @@ def dashboard():
     top_performer = get_top_performer_month() if can_see_activity_log(session['role']) else None
     recent_activity = get_recent_activity(10) if can_see_activity_log(session['role']) else []
     announcements = get_active_announcements(session['user_id'])
+
+    # Team achievement for manager/supervisor
+    team_monthly = []
+    team_quarterly = None
+    if can_see_all_tasks(role):
+        team_monthly = get_monthly_achievement()
+        now_dt = datetime.now()
+        team_quarterly = get_quarterly_achievement(now_dt.year, (now_dt.month - 1) // 3 + 1)
+
     return render_template('dashboard.html', user=user, tasks=tasks, stats=stats, alerts=alerts, escalations=escalations,
                          chart_data=chart_data, top_performer=top_performer, recent_activity=recent_activity,
                          announcements=announcements, can_manage_users=can_manage_users(role),
-                         can_see_activity=can_see_activity_log(role), can_manage_announcements=can_manage_announcements(role))
+                         can_see_activity=can_see_activity_log(role), can_manage_announcements=can_manage_announcements(role),
+                         team_monthly=team_monthly, team_quarterly=team_quarterly)
 
 @app.route('/my_dashboard')
 @login_required
@@ -1027,7 +1037,7 @@ def edit_employee():
 @app.route('/employee/<int:employee_id>/tasks')
 @login_required
 def employee_tasks(employee_id):
-    if not can_manage_users(session['role']) and session['user_id'] != employee_id:
+    if not can_see_all_tasks(session['role']) and session['user_id'] != employee_id:
         flash('غير مصرح', 'error')
         return redirect(url_for('dashboard'))
     conn = get_db_connection()
@@ -1046,7 +1056,7 @@ def employee_tasks(employee_id):
 @app.route('/employee/<int:employee_id>/dashboard')
 @login_required
 def employee_dashboard(employee_id):
-    if not can_manage_users(session['role']) and session['user_id'] != employee_id:
+    if not can_see_all_tasks(session['role']) and session['user_id'] != employee_id:
         flash('غير مصرح', 'error')
         return redirect(url_for('dashboard'))
     conn = get_db_connection()
@@ -1054,8 +1064,17 @@ def employee_dashboard(employee_id):
     if not employee:
         conn.close()
         abort(404)
-    today = datetime.now().strftime('%Y-%m-%d')
-    this_month = datetime.now().strftime('%Y-%m')
+    now = datetime.now()
+    today = now.strftime('%Y-%m-%d')
+    this_month = now.strftime('%Y-%m')
+    this_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
+    q_months = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+    q_names = {1: 'الأول', 2: 'الثاني', 3: 'الثالث', 4: 'الرابع'}
+    start_m, end_m = q_months[current_quarter]
+    q_start = f'{this_year}-{start_m:02d}-01'
+    q_end   = f'{this_year}-{end_m:02d}-31'
+
     stats = {
         'total_tasks': conn.execute('SELECT COUNT(*) FROM tasks WHERE assigned_to = ?', (employee_id,)).fetchone()[0],
         'completed_tasks': conn.execute('SELECT COUNT(*) FROM tasks WHERE assigned_to = ? AND status = ?', (employee_id, 'مكتملة')).fetchone()[0],
@@ -1068,8 +1087,16 @@ def employee_dashboard(employee_id):
     }
     monthly_completed = conn.execute('''
         SELECT COUNT(*) FROM tasks
-        WHERE assigned_to = ? AND status = 'مكتملة' AND strftime('%Y-%m', created_at) = ?
+        WHERE assigned_to = ? AND status = 'مكتملة'
+        AND strftime('%Y-%m', COALESCE(completed_at, created_at)) = ?
     ''', (employee_id, this_month)).fetchone()[0]
+
+    quarterly_completed = conn.execute('''
+        SELECT COUNT(*) FROM tasks
+        WHERE assigned_to = ? AND status = 'مكتملة'
+        AND date(COALESCE(completed_at, created_at)) BETWEEN date(?) AND date(?)
+    ''', (employee_id, q_start, q_end)).fetchone()[0]
+
     recent_tasks = conn.execute('''
         SELECT t.*, creator.name as created_by_name
         FROM tasks t
@@ -1079,10 +1106,14 @@ def employee_dashboard(employee_id):
         LIMIT 12
     ''', (employee_id,)).fetchall()
     conn.close()
+
     employee_dict = dict(employee)
     target = employee_dict.get('target_tasks') or 5
+    q_target = target * 3
     completion_rate = int((stats['completed_tasks'] / stats['total_tasks']) * 100) if stats['total_tasks'] > 0 else 0
-    monthly_target_rate = int((monthly_completed / target) * 100) if target > 0 else 0
+    monthly_pct  = min(100, int(monthly_completed  / target   * 100)) if target   > 0 else 0
+    quarterly_pct = min(100, int(quarterly_completed / q_target * 100)) if q_target > 0 else 0
+
     return render_template(
         'employee_dashboard.html',
         user=get_user_by_id(session['user_id']),
@@ -1092,7 +1123,15 @@ def employee_dashboard(employee_id):
         monthly_completed=monthly_completed,
         target=target,
         completion_rate=completion_rate,
-        monthly_target_rate=monthly_target_rate
+        monthly_target_rate=monthly_pct,
+        monthly_pct=monthly_pct,
+        quarterly_completed=quarterly_completed,
+        q_target=q_target,
+        quarterly_pct=quarterly_pct,
+        current_quarter=current_quarter,
+        quarter_name=q_names[current_quarter],
+        this_year=this_year,
+        this_month=this_month,
     )
 
 @app.route('/add_task', methods=['POST'])
