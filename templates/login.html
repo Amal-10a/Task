@@ -72,10 +72,12 @@
             </button>
         </form>
         
+        {% if config.DEBUG %}
         <div class="demo-info">
             <i class="fas fa-info-circle"></i>
-            <strong>حساب المدير:</strong> admin / admin123
+            <strong>وضع التطوير:</strong> admin / admin123
         </div>
+        {% endif %}
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>

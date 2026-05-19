@@ -70,6 +70,16 @@ def backup_database():
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_path = os.path.join(backups_dir, f'task_manager_{stamp}.db')
     shutil.copy2(DB_PATH, backup_path)
+    # Keep only the latest 10 backups
+    backups = sorted(
+        [f for f in os.listdir(backups_dir) if f.endswith('.db')],
+        reverse=True
+    )
+    for old in backups[10:]:
+        try:
+            os.remove(os.path.join(backups_dir, old))
+        except OSError:
+            pass
 
 # Roles with hierarchy: مسؤول_النظام > مدير > مشرف > موظف > متدرب
 def can_manage_users(role):
@@ -980,7 +990,8 @@ def employees():
     employees_list = get_all_employees('موظف')
     supervisors_list = get_all_supervisors()
     trainees_list = get_all_employees('متدرب')
-    return render_template('employees.html', employees=employees_list, supervisors=supervisors_list, trainees=trainees_list, user=user)
+    return render_template('employees.html', employees=employees_list, supervisors=supervisors_list, trainees=trainees_list, user=user,
+                           can_manage_system=can_manage_system(session['role']))
 
 @app.route('/delete_employee/<int:employee_id>', methods=['POST'])
 @login_required
@@ -1011,13 +1022,22 @@ def edit_employee():
     if not can_manage_users(session['role']):
         flash('غير مصرح', 'error')
         return redirect(url_for('dashboard'))
-    employee_id = request.form.get('employee_id')
+    try:
+        employee_id = int(request.form.get('employee_id', 0))
+    except (ValueError, TypeError):
+        flash('معرف الموظف غير صالح', 'error')
+        return redirect(url_for('employees'))
     name = request.form.get('name', '').strip()
     username = request.form.get('username', '').strip()
     password = request.form.get('password', '')
     email = request.form.get('email', '').strip() or None
     user_type = request.form.get('user_type', 'موظف')
     conn = get_db_connection()
+    target_user = conn.execute('SELECT role FROM users WHERE id = ?', (employee_id,)).fetchone()
+    if target_user and target_user['role'] == 'مدير' and not can_manage_system(session['role']):
+        conn.close()
+        flash('غير مصرح بتعديل المديرين', 'error')
+        return redirect(url_for('employees'))
     if user_type == 'مدير' and not can_manage_system(session['role']):
         flash('غير مصرح بتعديل المديرين', 'error')
         return redirect(url_for('employees'))
@@ -1029,7 +1049,8 @@ def edit_employee():
             conn.execute('UPDATE users SET name = ?, username = ?, role = ?, email = ? WHERE id = ?',
                         (name, username, user_type, email, employee_id))
         conn.commit()
-        log_activity(session['user_id'], session.get('name'), 'تعديل مستخدم', 'user', int(employee_id), name)
+        action = 'تعديل مستخدم مع تغيير كلمة المرور' if password else 'تعديل مستخدم'
+        log_activity(session['user_id'], session.get('name'), action, 'user', int(employee_id), name)
         flash('تم تحديث البيانات بنجاح', 'success')
     except sqlite3.IntegrityError:
         flash('اسم المستخدم موجود بالفعل', 'error')
@@ -1144,6 +1165,9 @@ def add_task():
     progress = parse_progress(request.form.get('progress', 0))
     if not title:
         flash('عنوان المهمة مطلوب', 'error')
+        return redirect(url_for('tasks'))
+    if len(title) > 200:
+        flash('عنوان المهمة طويل جداً (200 حرف كحد أقصى)', 'error')
         return redirect(url_for('tasks'))
     if can_manage_users(session['role']) or can_see_all_tasks(session['role']):
         assigned_to = request.form.get('assigned_to')
@@ -1290,7 +1314,10 @@ def toggle_theme():
 def update_employee_target(employee_id):
     if not can_manage_users(session['role']):
         return redirect(url_for('dashboard'))
-    target = request.form.get('target_tasks', 5)
+    try:
+        target = max(1, min(200, int(request.form.get('target_tasks', 5))))
+    except (ValueError, TypeError):
+        target = 5
     conn = get_db_connection()
     conn.execute('UPDATE users SET target_tasks = ? WHERE id = ?', (target, employee_id))
     conn.commit()

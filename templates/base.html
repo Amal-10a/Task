@@ -402,11 +402,6 @@
                 <i class="fas fa-chart-bar"></i>
                 <span>الإدارة</span>
             </a>
-            {% else %}
-            <a href="{{ url_for('my_dashboard') }}" class="tab-btn {% if request.endpoint == 'my_dashboard' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>لوحتي</span>
-            </a>
             {% endif %}
             <a href="{{ url_for('my_dashboard') }}" class="tab-btn {% if request.endpoint == 'my_dashboard' %}active{% endif %}">
                 <i class="fas fa-user"></i>
