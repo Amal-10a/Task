@@ -228,6 +228,24 @@ def init_db():
         cursor.execute('ALTER TABLE tasks ADD COLUMN overdue_escalated INTEGER DEFAULT 0')
     except sqlite3.OperationalError:
         pass
+    try:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN completed_at TEXT')
+    except sqlite3.OperationalError:
+        pass
+    # Management org-wide targets
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS management_targets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            period TEXT NOT NULL,
+            period_type TEXT NOT NULL DEFAULT 'monthly',
+            target_completions INTEGER DEFAULT 0,
+            notes TEXT,
+            created_by INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(period, period_type),
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    ''')
     cursor.execute("SELECT * FROM users WHERE username = 'admin'")
     if not cursor.fetchone():
         cursor.execute(
@@ -513,6 +531,125 @@ def get_top_performer_month():
         AND u.role IN ('موظف', 'مشرف', 'متدرب')
         GROUP BY t.assigned_to ORDER BY completed_count DESC LIMIT 1
     ''', (this_month,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_monthly_achievement(month=None):
+    """Monthly achievement per employee + org total."""
+    if not month:
+        month = datetime.now().strftime('%Y-%m')
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT u.id, u.name, u.role, u.username,
+               COALESCE(u.target_tasks, 5) as target,
+               COUNT(CASE WHEN t.status = 'مكتملة'
+                     AND strftime('%Y-%m', COALESCE(t.completed_at, t.created_at)) = ?
+                     THEN 1 END) as completed
+        FROM users u
+        LEFT JOIN tasks t ON t.assigned_to = u.id
+        WHERE u.role IN ('موظف', 'مشرف', 'متدرب')
+        GROUP BY u.id
+        ORDER BY completed DESC
+    ''', (month,)).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d['pct'] = min(100, int(d['completed'] / d['target'] * 100)) if d['target'] > 0 else 0
+        result.append(d)
+    return result
+
+def get_quarterly_achievement(year=None, quarter=None):
+    """Quarterly achievement per employee for given year/quarter."""
+    now = datetime.now()
+    if not year:
+        year = now.year
+    if not quarter:
+        quarter = (now.month - 1) // 3 + 1
+    q_months = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+    start_m, end_m = q_months[quarter]
+    start_date = f'{year}-{start_m:02d}-01'
+    end_date = f'{year}-{end_m:02d}-31'
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT u.id, u.name, u.role, u.username,
+               COALESCE(u.target_tasks, 5) as monthly_target,
+               COUNT(CASE WHEN t.status = 'مكتملة'
+                     AND date(COALESCE(t.completed_at, t.created_at)) BETWEEN date(?) AND date(?)
+                     THEN 1 END) as completed
+        FROM users u
+        LEFT JOIN tasks t ON t.assigned_to = u.id
+        WHERE u.role IN ('موظف', 'مشرف', 'متدرب')
+        GROUP BY u.id
+        ORDER BY completed DESC
+    ''', (start_date, end_date)).fetchall()
+    # Org total completed this quarter
+    org_total = conn.execute('''
+        SELECT COUNT(*) FROM tasks
+        WHERE status = 'مكتملة'
+        AND date(COALESCE(completed_at, created_at)) BETWEEN date(?) AND date(?)
+    ''', (start_date, end_date)).fetchone()[0]
+    # Management target for this quarter
+    q_key = f'{year}-Q{quarter}'
+    mgmt = conn.execute(
+        'SELECT target_completions FROM management_targets WHERE period = ? AND period_type = ?',
+        (q_key, 'quarterly')
+    ).fetchone()
+    conn.close()
+    q_names = {1: 'الأول', 2: 'الثاني', 3: 'الثالث', 4: 'الرابع'}
+    result = []
+    for r in rows:
+        d = dict(r)
+        q_target = d['monthly_target'] * 3
+        d['q_target'] = q_target
+        d['pct'] = min(100, int(d['completed'] / q_target * 100)) if q_target > 0 else 0
+        result.append(d)
+    return {
+        'quarter': quarter,
+        'quarter_name': q_names[quarter],
+        'year': year,
+        'employees': result,
+        'org_total': org_total,
+        'mgmt_target': mgmt['target_completions'] if mgmt else 0
+    }
+
+def get_all_quarters_summary(year=None):
+    """Summary of all 4 quarters for the year."""
+    if not year:
+        year = datetime.now().year
+    conn = get_db_connection()
+    quarters = []
+    q_months = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+    q_names = {1: 'الأول', 2: 'الثاني', 3: 'الثالث', 4: 'الرابع'}
+    for q, (sm, em) in q_months.items():
+        start_date = f'{year}-{sm:02d}-01'
+        end_date = f'{year}-{em:02d}-31'
+        total = conn.execute('''
+            SELECT COUNT(*) FROM tasks
+            WHERE status = 'مكتملة'
+            AND date(COALESCE(completed_at, created_at)) BETWEEN date(?) AND date(?)
+        ''', (start_date, end_date)).fetchone()[0]
+        q_key = f'{year}-Q{q}'
+        mgmt = conn.execute(
+            'SELECT target_completions FROM management_targets WHERE period = ? AND period_type = ?',
+            (q_key, 'quarterly')
+        ).fetchone()
+        quarters.append({
+            'quarter': q,
+            'name': q_names[q],
+            'total': total,
+            'target': mgmt['target_completions'] if mgmt else 0,
+            'pct': min(100, int(total / mgmt['target_completions'] * 100)) if mgmt and mgmt['target_completions'] > 0 else 0
+        })
+    conn.close()
+    return quarters
+
+def get_management_target(period, period_type):
+    conn = get_db_connection()
+    row = conn.execute(
+        'SELECT * FROM management_targets WHERE period = ? AND period_type = ?',
+        (period, period_type)
+    ).fetchone()
     conn.close()
     return dict(row) if row else None
 
@@ -1020,7 +1157,14 @@ def update_task(task_id):
         conn.close()
         abort(403)
     progress = STATUS_TO_PROGRESS.get(status, task['progress'])
-    conn.execute('UPDATE tasks SET status = ?, progress = ? WHERE id = ?', (status, progress, task_id))
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    completed_at = now_str if status == 'مكتملة' else None
+    if status == 'مكتملة':
+        conn.execute('UPDATE tasks SET status = ?, progress = ?, completed_at = ? WHERE id = ?',
+                     (status, progress, completed_at, task_id))
+    else:
+        conn.execute('UPDATE tasks SET status = ?, progress = ?, completed_at = NULL WHERE id = ?',
+                     (status, progress, task_id))
     conn.commit()
     conn.close()
     log_activity(session['user_id'], session.get('name'), 'تحديث حالة المهمة', 'task', task_id, f"{task['title']} → {status} ({progress}%)")
@@ -1129,37 +1273,121 @@ def update_task_progress(task_id):
     conn.close()
     return jsonify({'success': True, 'progress': progress})
 
+@app.route('/set_management_target', methods=['POST'])
+@login_required
+@role_required('مسؤول_النظام')
+def set_management_target():
+    period_type = request.form.get('period_type', 'monthly')
+    period = request.form.get('period', '').strip()
+    target_completions = request.form.get('target_completions', 0)
+    notes = request.form.get('notes', '').strip() or None
+    try:
+        target_completions = max(0, int(target_completions))
+    except (ValueError, TypeError):
+        target_completions = 0
+    if not period:
+        flash('الفترة مطلوبة', 'error')
+        return redirect(url_for('system_admin'))
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO management_targets (period, period_type, target_completions, notes, created_by)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(period, period_type) DO UPDATE SET
+            target_completions = excluded.target_completions,
+            notes = excluded.notes
+    ''', (period, period_type, target_completions, notes, session['user_id']))
+    conn.commit()
+    conn.close()
+    log_activity(session['user_id'], session.get('name'), 'تحديث هدف إداري', details=f'{period_type}: {period} → {target_completions}')
+    flash('تم تحديث الهدف بنجاح', 'success')
+    return redirect(url_for('system_admin'))
+
 @app.route('/system_admin')
 @login_required
 @role_required('مسؤول_النظام')
 def system_admin():
     user = get_user_by_id(session['user_id'])
     conn = get_db_connection()
-    
-    # All users
+    now = datetime.now()
+    this_month = now.strftime('%Y-%m')
+    this_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
+
+    # All users with task counts
     all_users = conn.execute('''
-        SELECT u.*, 
+        SELECT u.*,
                (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id) as task_count,
                (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id AND status = 'مكتملة') as completed_count
         FROM users u ORDER BY u.role, u.created_at DESC
     ''').fetchall()
-    
+
     # System stats
+    today = now.strftime('%Y-%m-%d')
     stats = {
-        'total_users': conn.execute('SELECT COUNT(*) FROM users').fetchone()[0],
-        'total_tasks': conn.execute('SELECT COUNT(*) FROM tasks').fetchone()[0],
-        'active_announcements': conn.execute('SELECT COUNT(*) FROM announcements WHERE is_active = 1').fetchone()[0],
-        'total_notifications': conn.execute('SELECT COUNT(*) FROM notifications').fetchone()[0],
-        'managers_count': conn.execute("SELECT COUNT(*) FROM users WHERE role = 'مدير'").fetchone()[0]
+        'total_users':          conn.execute('SELECT COUNT(*) FROM users').fetchone()[0],
+        'total_tasks':          conn.execute('SELECT COUNT(*) FROM tasks').fetchone()[0],
+        'active_announcements': conn.execute('SELECT COUNT(*) FROM announcements WHERE is_active=1').fetchone()[0],
+        'total_notifications':  conn.execute('SELECT COUNT(*) FROM notifications').fetchone()[0],
+        'managers_count':       conn.execute("SELECT COUNT(*) FROM users WHERE role='مدير'").fetchone()[0],
+        'completed_tasks':      conn.execute("SELECT COUNT(*) FROM tasks WHERE status='مكتملة'").fetchone()[0],
+        'overdue_tasks':        conn.execute(
+            "SELECT COUNT(*) FROM tasks WHERE status!='مكتملة' AND due_date IS NOT NULL AND due_date<?",
+            (today,)).fetchone()[0],
+        'employees_count':      conn.execute("SELECT COUNT(*) FROM users WHERE role IN ('موظف','مشرف','متدرب')").fetchone()[0],
     }
-    
-    # Full activity
+
+    # Monthly achievement
+    monthly_data = get_monthly_achievement(this_month)
+    monthly_org_completed = sum(e['completed'] for e in monthly_data)
+    monthly_mgmt = get_management_target(this_month, 'monthly')
+    monthly_org_target = monthly_mgmt['target_completions'] if monthly_mgmt else 0
+    monthly_org_pct = min(100, int(monthly_org_completed / monthly_org_target * 100)) if monthly_org_target > 0 else 0
+
+    # Quarterly achievement
+    quarterly_data = get_quarterly_achievement(this_year, current_quarter)
+    all_quarters = get_all_quarters_summary(this_year)
+
+    # Employee of month (top performer)
+    top_performer = get_top_performer_month()
+    if monthly_data:
+        emp_of_month = monthly_data[0] if monthly_data[0]['completed'] > 0 else None
+    else:
+        emp_of_month = None
+
+    # Activity
     activity = get_recent_activity(50)
-    
+
+    # Current month management target for form pre-fill
+    q_key = f'{this_year}-Q{current_quarter}'
+    quarterly_mgmt_target = get_management_target(q_key, 'quarterly')
+
+    # All employees for target editing
+    all_employees = conn.execute(
+        "SELECT id, name, role, username, target_tasks FROM users WHERE role IN ('موظف','مشرف','متدرب') ORDER BY role, name"
+    ).fetchall()
+
     conn.close()
-    
-    return render_template('system_admin.html', user=user, all_users=[dict(u) for u in all_users], 
-                          stats=stats, activity=activity)
+
+    return render_template('system_admin.html',
+        user=user,
+        all_users=[dict(u) for u in all_users],
+        stats=stats,
+        activity=activity,
+        monthly_data=monthly_data,
+        monthly_org_completed=monthly_org_completed,
+        monthly_org_target=monthly_org_target,
+        monthly_org_pct=monthly_org_pct,
+        this_month=this_month,
+        quarterly_data=quarterly_data,
+        all_quarters=all_quarters,
+        current_quarter=current_quarter,
+        this_year=this_year,
+        q_key=q_key,
+        quarterly_mgmt_target=quarterly_mgmt_target,
+        emp_of_month=emp_of_month,
+        top_performer=top_performer,
+        all_employees=[dict(e) for e in all_employees],
+    )
 
 
 if __name__ == '__main__':
