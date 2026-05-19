@@ -97,35 +97,6 @@
 .priority-filter-btn {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-.priority-filter-btn:hover {
-    transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
-}
-.priority-filter-btn.active {
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
-    border-width: 3px !important;
-}
-.priority-filter-btn.inactive {
-    opacity: 0.6;
-}
-@media (max-width: 768px) {
-    .task-filters {
-        padding: 16px !important;
-        margin: 16px 0 !important;
-    }
-    .priority-filter-btn {
-        min-width: 90px !important;
-        padding: 10px 12px !important;
-        font-size: 13px !important;
-    }
-}
-</style>
-
-<style>
-.priority-filter-btn {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
 .priority-filter-btn:hover:not(.active) {
     transform: translateY(-1px) scale(1.02);
     box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
@@ -195,7 +166,7 @@
             </select>
         </form>
 
-        {% if user.role == 'مدير' %}
+        {% if user.role in ['مدير', 'مسؤول_النظام'] %}
         <div class="task-actions">
             <form method="POST" action="{{ url_for('delete_task', task_id=task.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذه المهمة؟');" style="display:inline;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -233,7 +204,7 @@
                 <label><i class="fas fa-user"></i> الموظف المسؤول</label>
                 {% if user.role in ['مدير', 'مشرف', 'مسؤول_النظام'] %}
                 <select name="assigned_to" {{ 'required' if user.role == 'مدير' else '' }}>
-                    <option value="{{ session['user_id'] }}"> ({{ user.role }})</option>
+                    <option value="{{ session['user_id'] }}">{{ user.name }} ({{ user.role }})</option>
                     {% for emp in employees %}
                     <option value="{{ emp.id }}">{{ emp.name }} ({{ 'مشرف' if emp.role == 'مشرف' else 'موظف' if emp.role != session.role else 'نفسي' }})</option>
                     {% endfor %}

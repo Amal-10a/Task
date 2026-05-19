@@ -367,7 +367,7 @@ def get_all_users(include_trainees=True):
     conn.close()
     return users
 
-def get_tasks_for_user(user_id, role, priority=None):
+def get_tasks_for_user(user_id, role, priority=None, status=None):
     conn = get_db_connection()
     if can_see_all_tasks(role):
         query = '''
@@ -376,10 +376,15 @@ def get_tasks_for_user(user_id, role, priority=None):
             LEFT JOIN users u ON t.assigned_to = u.id
             LEFT JOIN users creator ON t.created_by = creator.id
         '''
-        params = ()
+        conditions, params = [], []
         if priority:
-            query += ' WHERE t.priority = ?'
-            params = (priority,)
+            conditions.append('t.priority = ?')
+            params.append(priority)
+        if status:
+            conditions.append('t.status = ?')
+            params.append(status)
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
         query += ' ORDER BY t.due_date ASC'
         tasks = conn.execute(query, params).fetchall()
     else:
@@ -390,10 +395,13 @@ def get_tasks_for_user(user_id, role, priority=None):
             LEFT JOIN users creator ON t.created_by = creator.id
             WHERE t.assigned_to = ?
         '''
-        params = (user_id,)
+        params = [user_id]
         if priority:
             query += ' AND t.priority = ?'
-            params += (priority,)
+            params.append(priority)
+        if status:
+            query += ' AND t.status = ?'
+            params.append(status)
         query += ' ORDER BY t.due_date ASC'
         tasks = conn.execute(query, params).fetchall()
     conn.close()
@@ -985,10 +993,11 @@ def add_task():
 @login_required
 def tasks():
     priority = request.args.get('priority')
+    status = request.args.get('status')
     employees = get_all_users()
     user = get_user_by_id(session['user_id'])
-    tasks_list = get_tasks_for_user(session['user_id'], session['role'], priority)
-    return render_template('tasks.html', tasks=tasks_list, employees=employees, user=user, priority=priority)
+    tasks_list = get_tasks_for_user(session['user_id'], session['role'], priority, status)
+    return render_template('tasks.html', tasks=tasks_list, employees=employees, user=user, priority=priority, status=status)
 
 @app.route('/update_task/<int:task_id>', methods=['POST'])
 @login_required
@@ -1006,8 +1015,8 @@ def update_task(task_id):
     if not can_access_task(task, session['user_id'], session['role']):
         conn.close()
         abort(403)
-    # Only assignee (employee) can update status
-    if task['assigned_to'] != session['user_id']:
+    # Assignee OR manager/sysadmin can update status
+    if task['assigned_to'] != session['user_id'] and not can_manage_users(session['role']):
         conn.close()
         abort(403)
     progress = STATUS_TO_PROGRESS.get(status, task['progress'])

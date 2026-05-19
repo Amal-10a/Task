@@ -414,7 +414,7 @@ body { position: relative; }
                 {% endif %}
             </div>
 
-            {% if trainees_list %}
+            {% if trainees %}
             <div class="table-card">
                 <h3><i class="fas fa-user-graduate"></i> المتدربون</h3>
                 <div class="employee-table-wrap">
@@ -430,7 +430,7 @@ body { position: relative; }
                             </tr>
                         </thead>
                         <tbody>
-                            {% for tr in trainees_list %}
+                            {% for tr in trainees %}
                             <tr>
                                 <td>
                                     <div class="user-cell">
@@ -476,9 +476,7 @@ body { position: relative; }
                 </div>
             </div>
             {% endif %}
-        </main>
-    </div>
-    
+
     <!-- Add Employee Modal -->
     <div id="addEmployeeModal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'addEmployeeModal')">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -503,17 +501,15 @@ body { position: relative; }
                 </div>
                 <div class="form-group">
                     <label><i class="fas fa-user-tag"></i> نوع المستخدم</label>
-
-                        <select name="user_type" required>
-                            {% if can_manage_system %}
-                            <option value="مدير">مدير</option>
-                            {% endif %}
-                            <option value="موظف">موظف</option>
-                            <option value="مشرف">مشرف</option>
-                            <option value="متدرب">متدرب</option>
-                        </select>
+                    <select name="user_type" required>
+                        {% if can_manage_system %}
+                        <option value="مدير">مدير</option>
+                        {% endif %}
+                        <option value="مشرف">مشرف</option>
+                        <option value="موظف">موظف</option>
+                        <option value="متدرب">متدرب</option>
+                    </select>
                 </div>
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-actions">
                     <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> إضافة</button>
                     <button type="button" onclick="closeModal('addEmployeeModal')" class="btn btn-danger"><i class="fas fa-times"></i> إلغاء</button>
@@ -564,17 +560,6 @@ body { position: relative; }
         </div>
     </div>
     
-    <script>
-    function openEditModal(id, name, username, role, email) {
-        document.getElementById('editEmployeeId').value = id;
-        document.getElementById('editEmployeeName').value = name;
-        document.getElementById('editEmployeeUsername').value = username;
-        document.getElementById('editEmployeeRole').value = role;
-        var emailEl = document.getElementById('editEmployeeEmail');
-        if (emailEl) emailEl.value = email || '';
-        openModal('editEmployeeModal');
-    }
-    </script>
 {% endblock %}
 
 {% block extra_js %}
