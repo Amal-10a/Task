@@ -6,129 +6,364 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}إدارة المهام{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}">
     {% block extra_css %}{% endblock %}
+<style>
+/* ══ Professional Sidebar ══════════════════════════════ */
+.dashboard-container { display:flex; min-height:100vh; }
+
+.sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--nav-bg);
+    border-left: 1px solid var(--nav-border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+    scrollbar-width: none;
+    transition: width 0.3s ease;
+}
+.sidebar::-webkit-scrollbar { display: none; }
+
+/* Accent bar */
+.sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, #4A2A18 0%, #A57A5A 50%, #4A2A18 100%);
+}
+.dark .sidebar::after { background: linear-gradient(180deg, #A57A5A 0%, #D8C3A8 50%, #A57A5A 100%); }
+
+/* Logo */
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 22px 18px 18px;
+    border-bottom: 1px solid rgba(74,42,24,0.12);
+}
+.sidebar-logo .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #4A2A18, #A57A5A);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px; flex-shrink: 0;
+}
+.sidebar-logo .logo-text h2 { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
+.sidebar-logo .logo-text span { font-size: 10px; color: var(--text-secondary); opacity: 0.7; }
+
+/* User Info */
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(74,42,24,0.1);
+}
+.sidebar-user .user-avatar {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 16px; flex-shrink: 0;
+}
+.sidebar-user .user-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.user-role-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    padding: 1px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Nav Sections */
+.nav-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    opacity: 0.55;
+    letter-spacing: 0.8px;
+    padding: 14px 18px 4px;
+    text-transform: uppercase;
+}
+.sidebar-nav {
+    list-style: none;
+    padding: 6px 10px;
+    margin: 0;
+    flex: 1;
+}
+.sidebar-nav li { margin-bottom: 2px; }
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    color: var(--text);
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+.sidebar-nav a i { width: 20px; text-align: center; font-size: 16px; flex-shrink: 0; }
+.sidebar-nav a:hover { background: rgba(74,42,24,0.08); opacity: 1; color: var(--primary); }
+.sidebar-nav a.active {
+    background: linear-gradient(135deg, #4A2A18 0%, #A57A5A 100%);
+    color: white !important;
+    opacity: 1;
+    box-shadow: 0 4px 12px rgba(74,42,24,0.25);
+}
+.dark .sidebar-nav a { color: #D8C3A8; }
+.dark .sidebar-nav a:hover { background: rgba(255,255,255,0.06); color: #EFE3D3; }
+.dark .sidebar-nav a.active { background: linear-gradient(135deg, #A57A5A 0%, #D8C3A8 100%); color: #3B2416 !important; }
+.sidebar-nav a.nav-logout { color: #8B4513 !important; opacity: 0.8; }
+.sidebar-nav a.nav-logout:hover { background: rgba(180,80,60,0.12); color: #a52a2a !important; }
+.sidebar-divider { height: 1px; background: rgba(74,42,24,0.1); margin: 8px 14px; }
+
+/* Main content */
+.main-content { flex:1; padding:28px; overflow-y:auto; padding-bottom:90px; position:relative; z-index:1; }
+.dark .main-content { color: #F2EDE3; }
+
+/* Notification bell — fixed */
+.notif-fixed {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 9999;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.notif-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text);
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+.notif-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+.notif-badge {
+    position: absolute;
+    top: -5px; right: -5px;
+    background: #B22222;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+    display: none;
+}
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 320px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+    z-index: 1000;
+    display: none;
+}
+.notification-dropdown.show { display: block; }
+.notification-header { padding:14px 16px; border-bottom:1px solid var(--border); font-weight:600; display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+.notification-item { padding:12px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.2s; }
+.notification-item:hover { background: var(--bg); }
+.notification-item:last-child { border-bottom: none; }
+.notification-item-title { font-weight:600; font-size:12px; color:var(--text); margin-bottom:3px; }
+.notification-item-desc { font-size:11px; color:var(--text-secondary); }
+.notification-empty { padding:30px; text-align:center; color:var(--text-secondary); font-size:13px; }
+
+/* ══ Bottom Tab Bar (mobile) ═══════════════════════════ */
+.bottom-tab-bar {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 62px;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    z-index: 2000;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+.bottom-tab-bar nav {
+    display: flex;
+    height: 100%;
+    align-items: stretch;
+}
+.tab-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s;
+    padding: 6px 2px 10px;
+    position: relative;
+}
+.tab-btn i { font-size: 20px; line-height: 1; }
+.tab-btn.active { color: var(--primary); }
+.tab-btn.active i { transform: translateY(-2px); }
+.tab-btn.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 0 0 4px 4px;
+}
+
+/* ══ Theme toggle ══════════════════════════════════════ */
+.theme-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text);
+    transition: all 0.2s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+.theme-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+/* ══ Alerts ════════════════════════════════════════════ */
+.flash-container { margin-bottom: 16px; }
+
+/* ══ Responsive ════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .sidebar { display: none !important; }
+    .bottom-tab-bar { display: block; }
+    .notif-fixed { top: 10px; left: 10px; }
+    .main-content { padding: 16px 14px 80px; }
+}
+@media (min-width: 769px) {
+    .notif-fixed { display: flex; }
+}
+</style>
 </head>
 <body class="{% if session.theme == 'dark' %}dark{% endif %}">
     <div class="network-bg"><canvas id="networkCanvas"></canvas></div>
-    <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع">
-        <i class="fas fa-moon"></i>
-    </button>
-    {% if 'user_id' in session %}
-    <div class="notifications-container global-notifications">
-        <button class="notification-bell" onclick="toggleNotifications()" title="الإشعارات">
-            <i class="fas fa-bell"></i>
-            <span class="notification-badge" id="globalNotificationBadge" style="display:none;">0</span>
-        </button>
-        <div class="notification-dropdown" id="notificationDropdown">
-            <div class="notification-header">
-                <span>الإشعارات</span>
-                <span onclick="markAllRead()" style="font-size: 12px; cursor: pointer; color: var(--primary);">✔ الكل مقروء</span>
-            </div>
-            <div id="notificationList"></div>
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- Mobile Nav -->
-    <button class="hamburger-menu" onclick="toggleMobileNav()" aria-label="القائمة">
-        <i class="fas fa-bars"></i>
-    </button>
-    <div class="mobile-nav-overlay" onclick="toggleMobileNav()"></div>
-    <nav class="mobile-nav" id="mobileNav">
-        <button class="mobile-nav-close" onclick="toggleMobileNav()">
-            <i class="fas fa-times"></i>
-        </button>
-        <div class="logo">
-            <div class="logo-icon"><i class="fas fa-tasks"></i></div>
-            <h2>إدارة المهام</h2>
-        </div>
-        <ul class="mobile-nav-menu">
-            <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
-                <i class="fas fa-home"></i> لوحة التحكم</a></li>
-            {% if can_manage_announcements %}
-            <li><a href="{{ url_for('announcements_page') }}" class="{% if request.endpoint in ['announcements_page','announcement_edit'] %}active{% endif %}">
-                <i class="fas fa-bullhorn"></i> الإعلانات</a></li>
-            {% endif %}
-            <li><a href="{{ url_for('tasks') }}" class="{% if request.endpoint == 'tasks' %}active{% endif %}">
-                <i class="fas fa-tasks"></i> المهام</a></li>
-            {% if can_see_activity %}
-            <li><a href="{{ url_for('activity_page') }}" class="{% if request.endpoint == 'activity_page' %}active{% endif %}">
-                <i class="fas fa-history"></i> سجل النشاط</a></li>
-            {% endif %}
-            {% if can_manage_users %}
-            <li><a href="{{ url_for('employees') }}" class="{% if request.endpoint == 'employees' %}active{% endif %}">
-                <i class="fas fa-users"></i> الموظفين</a></li>
-            <li><a href="{{ url_for('people_page') }}" class="{% if request.endpoint == 'people_page' %}active{% endif %}">
-                <i class="fas fa-users-cog"></i> الفريق والصلاحيات</a></li>
-            {% if can_manage_system %}
-            <li><a href="{{ url_for('system_admin') }}" class="{% if request.endpoint == 'system_admin' %}active{% endif %}">
-                <i class="fas fa-crown"></i> مسؤول النظام</a></li>
-            {% endif %}
-            {% endif %}
-            <li><a href="{{ url_for('my_dashboard') }}" class="{% if request.endpoint == 'my_dashboard' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt"></i> لوحتي</a></li>
-            <li><a href="{{ url_for('logout') }}" class="logout">
-                <i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></li>
-        </ul>
-    </nav>
 
-    <!-- Desktop Layout -->
+    {% if 'user_id' in session %}
+    <!-- Notification + Theme — fixed top-left -->
+    <div class="notif-fixed">
+        <div style="position:relative;">
+            <button class="notif-btn" onclick="toggleNotifications()" title="الإشعارات">
+                <i class="fas fa-bell"></i>
+                <span class="notif-badge" id="globalNotificationBadge">0</span>
+            </button>
+            <div class="notification-dropdown" id="notificationDropdown">
+                <div class="notification-header">
+                    <span>الإشعارات</span>
+                    <span onclick="markAllRead()" style="font-size:11px; cursor:pointer; color:var(--primary);">✔ الكل مقروء</span>
+                </div>
+                <div id="notificationList"></div>
+            </div>
+        </div>
+        <button class="theme-btn" onclick="toggleTheme()" title="تبديل الوضع">
+            <i class="fas {% if session.theme == 'dark' %}fa-sun{% else %}fa-moon{% endif %}"></i>
+        </button>
+    </div>
+
+    <!-- ══ Sidebar (desktop) ══════════════════════════════ -->
     <div class="dashboard-container">
-        <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="logo">
+            <!-- Logo -->
+            <div class="sidebar-logo">
                 <div class="logo-icon"><i class="fas fa-tasks"></i></div>
-                <h2>إدارة المهام</h2>
-            </div>
-            
-            <div class="user-info">
-                <div class="user-avatar">
-                    <i class="fas fa-user"></i>
+                <div class="logo-text">
+                    <h2>مهامي</h2>
+                    <span>Task Manager Pro</span>
                 </div>
+            </div>
+
+            <!-- User -->
+            <div class="sidebar-user">
+                <div class="user-avatar"><i class="fas fa-user"></i></div>
                 <div>
-                    <div class="name">{{ user.name }}</div>
-                    <div class="role">{{ user.role }}</div>
+                    <div class="user-name">{{ user.name }}</div>
+                    <div class="user-role-badge">{{ user.role }}</div>
                 </div>
             </div>
-            
-            <ul class="nav-menu">
+
+            <!-- Nav -->
+            <ul class="sidebar-nav">
+                <li><span class="nav-section-label">الرئيسية</span></li>
                 <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
                     <i class="fas fa-home"></i> لوحة التحكم
                 </a></li>
+                <li><a href="{{ url_for('tasks') }}" class="{% if request.endpoint == 'tasks' %}active{% endif %}">
+                    <i class="fas fa-check-square"></i> المهام
+                </a></li>
+                <li><a href="{{ url_for('my_dashboard') }}" class="{% if request.endpoint == 'my_dashboard' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt"></i> لوحتي
+                </a></li>
+
+                {% if can_see_all_tasks %}
+                <li><div class="sidebar-divider"></div></li>
+                <li><span class="nav-section-label">الإدارة</span></li>
+                <li><a href="{{ url_for('management_dashboard') }}" class="{% if request.endpoint == 'management_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i> لوحة الإدارة
+                </a></li>
+                {% if can_manage_users %}
+                <li><a href="{{ url_for('employees') }}" class="{% if request.endpoint == 'employees' %}active{% endif %}">
+                    <i class="fas fa-users"></i> الموظفون
+                </a></li>
+                <li><a href="{{ url_for('people_page') }}" class="{% if request.endpoint == 'people_page' %}active{% endif %}">
+                    <i class="fas fa-users-cog"></i> الفريق والصلاحيات
+                </a></li>
+                {% endif %}
                 {% if can_manage_announcements %}
-                <li><a href="{{ url_for('announcements_page') }}" class="{% if request.endpoint in ['announcements_page', 'announcement_edit', 'announcement_delete'] %}active{% endif %}">
+                <li><a href="{{ url_for('announcements_page') }}" class="{% if request.endpoint in ['announcements_page','announcement_edit'] %}active{% endif %}">
                     <i class="fas fa-bullhorn"></i> الإعلانات
                 </a></li>
                 {% endif %}
-                <li><a href="{{ url_for('tasks') }}" class="{% if request.endpoint == 'tasks' %}active{% endif %}">
-                    <i class="fas fa-tasks"></i> المهام
-                </a></li>
                 {% if can_see_activity %}
                 <li><a href="{{ url_for('activity_page') }}" class="{% if request.endpoint == 'activity_page' %}active{% endif %}">
                     <i class="fas fa-history"></i> سجل النشاط
                 </a></li>
                 {% endif %}
-                {% if can_manage_users %}
-                <li><a href="{{ url_for('employees') }}" class="{% if request.endpoint == 'employees' %}active{% endif %}">
-                    <i class="fas fa-users"></i> الموظفين
-                </a></li>
-                 <li><a href="{{ url_for('people_page') }}" class="{% if request.endpoint == 'people_page' %}active{% endif %}">
-                    <i class="fas fa-users-cog"></i>الفريق و الصلاحيات</a>
-            </li>
-            {% if can_manage_system %}
-            <li><a href="{{ url_for('system_admin') }}" class="{% if request.endpoint == 'system_admin' %}active{% endif %}">
-                <i class="fas fa-crown"></i> مسؤول النظام</a>
-            </li>
-            {% endif %}
                 {% endif %}
-                
-                <li><a href="{{ url_for('my_dashboard') }}" class="{% if request.endpoint == 'my_dashboard' %}active{% endif %}">
-                    <i class="fas fa-tachometer-alt"></i> لوحتي
+
+                {% if can_manage_system %}
+                <li><div class="sidebar-divider"></div></li>
+                <li><span class="nav-section-label">النظام</span></li>
+                <li><a href="{{ url_for('system_admin') }}" class="{% if request.endpoint == 'system_admin' %}active{% endif %}">
+                    <i class="fas fa-crown"></i> مسؤول النظام
                 </a></li>
-                <li><a href="{{ url_for('logout') }}" class="logout">
+                {% endif %}
+
+                <li><div class="sidebar-divider"></div></li>
+                <li><a href="{{ url_for('logout') }}" class="nav-logout">
                     <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
                 </a></li>
             </ul>
@@ -136,6 +371,7 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <div class="flash-container">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -145,10 +381,50 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-
+            </div>
             {% block content %}{% endblock %}
         </main>
     </div>
+
+    <!-- ══ Bottom Tab Bar (mobile) ════════════════════════ -->
+    <div class="bottom-tab-bar">
+        <nav>
+            <a href="{{ url_for('dashboard') }}" class="tab-btn {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span>الرئيسية</span>
+            </a>
+            <a href="{{ url_for('tasks') }}" class="tab-btn {% if request.endpoint == 'tasks' %}active{% endif %}">
+                <i class="fas fa-tasks"></i>
+                <span>المهام</span>
+            </a>
+            {% if can_see_all_tasks %}
+            <a href="{{ url_for('management_dashboard') }}" class="tab-btn {% if request.endpoint == 'management_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i>
+                <span>الإدارة</span>
+            </a>
+            {% else %}
+            <a href="{{ url_for('my_dashboard') }}" class="tab-btn {% if request.endpoint == 'my_dashboard' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>لوحتي</span>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('my_dashboard') }}" class="tab-btn {% if request.endpoint == 'my_dashboard' %}active{% endif %}">
+                <i class="fas fa-user"></i>
+                <span>لوحتي</span>
+            </a>
+            <a href="{{ url_for('logout') }}" class="tab-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>خروج</span>
+            </a>
+        </nav>
+    </div>
+
+    {% else %}
+    <!-- Not logged in — just theme toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع">
+        <i class="fas fa-moon"></i>
+    </button>
+    {% endif %}
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     {% block extra_js %}{% endblock %}

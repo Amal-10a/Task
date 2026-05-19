@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}لوحة الإدارة - إدارة المهام{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Tab Nav ─────────────────────────────── */
+.mgmt-tabs { display:flex; gap:6px; margin-bottom:0; overflow-x:auto; flex-wrap:nowrap; padding-bottom:0; -webkit-overflow-scrolling:touch; scrollbar-width:none; border-bottom:2px solid var(--border); }
+.mgmt-tabs::-webkit-scrollbar { display:none; }
+.mgmt-tab { padding:11px 18px; background:var(--bg); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0; font-size:13px; font-weight:500; color:var(--text-secondary); display:flex; align-items:center; gap:6px; }
+.mgmt-tab:hover { background:var(--card-bg); color:var(--primary); }
+.mgmt-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); transform:translateY(2px); }
+.mgmt-tab-content { display:none; padding-top:24px; }
+.mgmt-tab-content.active { display:block; }
+
+/* ── Achievement cards ───────────────────── */
+.ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:14px; }
+.ach-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:16px 18px; transition:box-shadow 0.2s; }
+.ach-card:hover { box-shadow:0 4px 18px rgba(74,42,24,0.1); }
+.ach-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
+.ach-name { font-weight:600; font-size:14px; }
+.ach-pct { font-weight:800; font-size:18px; color:var(--primary); flex-shrink:0; }
+.ach-bar-track { height:10px; background:var(--border); border-radius:5px; overflow:hidden; margin-bottom:8px; }
+.ach-bar-fill { height:100%; border-radius:5px; transition:width 0.5s ease; }
+.fill-low  { background:linear-gradient(90deg,#e74c3c,#c0392b); }
+.fill-mid  { background:linear-gradient(90deg,#f39c12,#e67e22); }
+.fill-high { background:linear-gradient(90deg,#27ae60,#2ecc71); }
+.fill-full { background:linear-gradient(90deg,var(--primary),#c89a6a); }
+.ach-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); }
+
+/* ── Org bar ─────────────────────────────── */
+.org-bar-wrap { background:var(--card-bg); border:1px solid var(--border); border-radius:16px; padding:20px 22px; margin-bottom:20px; }
+.org-bar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.org-bar-track { height:14px; background:var(--border); border-radius:7px; overflow:hidden; margin-bottom:8px; }
+.org-bar-fill { height:100%; border-radius:7px; background:linear-gradient(90deg,var(--primary),#c89a6a); transition:width 0.5s ease; }
+.org-pct-badge { background:var(--primary); color:#fff; padding:3px 12px; border-radius:20px; font-size:13px; font-weight:700; }
+
+/* ── Quarters ────────────────────────────── */
+.quarters-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; margin-bottom:20px; }
+.q-card { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:16px; text-align:center; }
+.q-card.current { border-color:var(--primary); }
+.q-num { font-size:28px; font-weight:800; color:var(--primary); }
+.q-bar-track { height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin-top:10px; }
+.q-bar-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--primary),#c89a6a); }
+
+/* ── Employee of month ───────────────────── */
+.emp-month-card { background:linear-gradient(135deg,#4A2A18,#7a4a28,#c89a6a); border-radius:20px; padding:32px 36px; text-align:center; color:#fff; box-shadow:0 12px 40px rgba(74,42,24,0.35); max-width:480px; margin:0 auto 24px; position:relative; overflow:hidden; }
+.emp-month-card::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; background:rgba(255,255,255,0.06); border-radius:50%; }
+.emp-month-crown { font-size:52px; margin-bottom:10px; }
+.emp-month-name { font-size:24px; font-weight:700; margin-bottom:6px; position:relative; z-index:1; }
+.emp-month-role { font-size:12px; opacity:0.8; margin-bottom:18px; position:relative; z-index:1; }
+.emp-month-stat { background:rgba(255,255,255,0.15); border-radius:12px; padding:12px 24px; display:inline-block; position:relative; z-index:1; }
+.emp-month-stat .num { font-size:30px; font-weight:800; }
+.emp-month-stat .lbl { font-size:11px; opacity:0.85; }
+
+/* ── Target table ────────────────────────── */
+.target-tbl-wrap { overflow-x:auto; border-radius:12px; border:1px solid var(--border); }
+.target-tbl { width:100%; border-collapse:collapse; min-width:460px; }
+.target-tbl th { background:var(--nav-bg); padding:11px 14px; text-align:right; font-size:12px; font-weight:700; color:var(--text-secondary); }
+.target-tbl td { padding:10px 14px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+.target-tbl tr:last-child td { border-bottom:none; }
+.target-tbl tr:hover td { background:rgba(74,42,24,0.04); }
+.target-input { width:70px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:13px; text-align:center; }
+.target-input:focus { outline:none; border-color:var(--primary); }
+
+/* ── Role chips ──────────────────────────── */
+.chip { display:inline-flex; align-items:center; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.chip-sup  { background:#4169E1; color:#fff; }
+.chip-emp  { background:#228B22; color:#fff; }
+.chip-tr   { background:#FF8C00; color:#000; }
+
+/* ── Section header ──────────────────────── */
+.sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+.sec-title { font-size:15px; font-weight:700; }
+
+@media (max-width: 640px) {
+    .emp-month-card { padding:24px 18px; }
+    .emp-month-crown { font-size:40px; }
+    .emp-month-name { font-size:18px; }
+    .mgmt-tab { padding:10px 14px; font-size:12px; }
+    .quarters-row { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-chart-bar" style="color:var(--primary); margin-left:10px;"></i> لوحة الإدارة</h1>
+    <p style="color:var(--text-secondary);font-size:13px;">متابعة الإنجاز والأهداف وأداء الفريق</p>
+</div>
+
+<!-- Tabs -->
+<div class="mgmt-tabs">
+    <div class="mgmt-tab active" onclick="switchMgmtTab(this,'mt-emp')">
+        <i class="fas fa-star"></i> موظف الشهر
+    </div>
+    <div class="mgmt-tab" onclick="switchMgmtTab(this,'mt-monthly')">
+        <i class="fas fa-calendar-alt"></i> الإنجاز الشهري
+    </div>
+    <div class="mgmt-tab" onclick="switchMgmtTab(this,'mt-quarterly')">
+        <i class="fas fa-chart-pie"></i> الإنجاز الربعي
+    </div>
+    {% if can_set_targets %}
+    <div class="mgmt-tab" onclick="switchMgmtTab(this,'mt-targets')">
+        <i class="fas fa-bullseye"></i> الأهداف
+    </div>
+    {% endif %}
+    <div class="mgmt-tab" onclick="switchMgmtTab(this,'mt-team')">
+        <i class="fas fa-users"></i> الفريق
+    </div>
+</div>
+
+<!-- TAB: Employee of Month -->
+<div id="mt-emp" class="mgmt-tab-content active">
+    {% if emp_of_month %}
+    <div class="emp-month-card">
+        <div class="emp-month-crown">👑</div>
+        <div class="emp-month-name">{{ emp_of_month.name }}</div>
+        <div class="emp-month-role">{{ emp_of_month.role }}</div>
+        <div class="emp-month-stat">
+            <div class="num">{{ emp_of_month.completed }}</div>
+            <div class="lbl">مهمة مكتملة هذا الشهر</div>
+        </div>
+    </div>
+    <!-- runners up -->
+    {% set runners = monthly_data[1:4] if monthly_data|length > 1 else [] %}
+    {% if runners %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; max-width:700px; margin:0 auto;">
+        {% for r in runners %}{% if r.completed > 0 %}
+        <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:16px 18px; display:flex; align-items:center; gap:14px;">
+            <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;
+                background:{% if loop.index==1 %}linear-gradient(135deg,#b0b0b0,#808080){% else %}linear-gradient(135deg,#cd7f32,#8b4513){% endif %};color:#fff;">{{ loop.index+1 }}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:13px;">{{ r.name }}</div>
+                <div style="font-size:11px;color:var(--text-secondary);">{{ r.completed }} مهمة</div>
+            </div>
+            <span style="font-weight:700;color:var(--primary);font-size:14px;">{{ r.pct }}%</span>
+        </div>
+        {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state" style="padding:60px 20px;">
+        <i class="fas fa-star" style="font-size:48px;color:var(--border);margin-bottom:14px;"></i>
+        <h3>لا يوجد بيانات إنجاز بعد</h3>
+        <p>يظهر موظف الشهر عند اكتمال مهام الفريق</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- TAB: Monthly Achievement -->
+<div id="mt-monthly" class="mgmt-tab-content">
+    <div class="org-bar-wrap">
+        <div class="org-bar-header">
+            <div style="font-weight:700;font-size:14px;"><i class="fas fa-building" style="color:var(--primary);margin-left:6px;"></i> إجمالي المنظمة — {{ this_month }}</div>
+            <span class="org-pct-badge">{{ monthly_org_pct }}%</span>
+        </div>
+        <div class="org-bar-track"><div class="org-bar-fill" data-pct="{{ monthly_org_pct }}"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);">
+            <span>{{ monthly_org_completed }} مكتملة</span>
+            <span>المستهدف: {{ monthly_org_target if monthly_org_target > 0 else 'غير محدد' }}</span>
+        </div>
+    </div>
+    <div class="ach-grid">
+        {% for emp in monthly_data %}
+        <div class="ach-card">
+            <div class="ach-card-header">
+                <div><div class="ach-name">{{ emp.name }}</div><div style="font-size:11px;color:var(--text-secondary);">{{ emp.role }}</div></div>
+                <div class="ach-pct">{{ emp.pct }}%</div>
+            </div>
+            <div class="ach-bar-track">
+                <div class="ach-bar-fill {% if emp.pct>=100 %}fill-full{% elif emp.pct>=60 %}fill-high{% elif emp.pct>=30 %}fill-mid{% else %}fill-low{% endif %}" data-pct="{{ emp.pct }}"></div>
+            </div>
+            <div class="ach-meta"><span>{{ emp.completed }} مكتملة</span><span>هدف {{ emp.target }}</span></div>
+        </div>
+        {% else %}
+        <div class="empty-state"><p>لا توجد بيانات</p></div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- TAB: Quarterly Achievement -->
+<div id="mt-quarterly" class="mgmt-tab-content">
+    <div class="quarters-row">
+        {% for q in all_quarters %}
+        <div class="q-card {% if q.quarter==current_quarter %}current{% endif %}">
+            <div style="font-weight:700;font-size:14px;">الربع {{ q.name }}</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">{{ this_year }}</div>
+            <div class="q-num">{{ q.total }}</div>
+            <div style="font-size:11px;color:var(--text-secondary);">مكتملة{% if q.target>0 %} / هدف {{ q.target }}{% endif %}</div>
+            <div class="q-bar-track"><div class="q-bar-fill" data-pct="{{ q.pct }}"></div></div>
+            {% if q.quarter==current_quarter %}<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--primary);">الحالي</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="org-bar-wrap">
+        <div class="org-bar-header">
+            <div style="font-weight:700;font-size:14px;"><i class="fas fa-layer-group" style="color:var(--primary);margin-left:6px;"></i> الربع {{ quarter_name }} {{ this_year }}</div>
+            <span class="org-pct-badge">{% if quarterly_data.mgmt_target>0 %}{{ [100,(quarterly_data.org_total/quarterly_data.mgmt_target*100)|int]|min }}%{% else %}—{% endif %}</span>
+        </div>
+        <div class="org-bar-track">
+            <div class="org-bar-fill" data-pct="{% if quarterly_data.mgmt_target>0 %}{{ [100,(quarterly_data.org_total/quarterly_data.mgmt_target*100)|int]|min }}{% else %}0{% endif %}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);">
+            <span>{{ quarterly_data.org_total }} مكتملة</span>
+            <span>المستهدف: {{ quarterly_data.mgmt_target if quarterly_data.mgmt_target>0 else 'غير محدد' }}</span>
+        </div>
+    </div>
+    <div class="ach-grid">
+        {% for emp in quarterly_data.employees %}
+        <div class="ach-card">
+            <div class="ach-card-header">
+                <div><div class="ach-name">{{ emp.name }}</div><div style="font-size:11px;color:var(--text-secondary);">{{ emp.role }}</div></div>
+                <div class="ach-pct">{{ emp.pct }}%</div>
+            </div>
+            <div class="ach-bar-track">
+                <div class="ach-bar-fill {% if emp.pct>=100 %}fill-full{% elif emp.pct>=60 %}fill-high{% elif emp.pct>=30 %}fill-mid{% else %}fill-low{% endif %}" data-pct="{{ emp.pct }}"></div>
+            </div>
+            <div class="ach-meta"><span>{{ emp.completed }} مكتملة</span><span>هدف {{ emp.q_target }}</span></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- TAB: Targets (managers only) -->
+{% if can_set_targets %}
+<div id="mt-targets" class="mgmt-tab-content">
+    <div class="sec-hdr"><div class="sec-title"><i class="fas fa-bullseye" style="color:var(--primary);"></i> تحديد أهداف الموظفين</div></div>
+    <div class="target-tbl-wrap">
+        <table class="target-tbl">
+            <thead><tr><th>الاسم</th><th>الدور</th><th>الهدف الشهري</th><th>الهدف الربعي</th><th>تعديل</th></tr></thead>
+            <tbody>
+                {% for emp in all_employees %}
+                <tr>
+                    <td><strong>{{ emp.name }}</strong></td>
+                    <td><span class="chip {% if emp.role=='مشرف' %}chip-sup{% elif emp.role=='موظف' %}chip-emp{% else %}chip-tr{% endif %}">{{ emp.role }}</span></td>
+                    <td>{{ emp.target_tasks or 5 }}</td>
+                    <td>{{ (emp.target_tasks or 5)*3 }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('update_employee_target', employee_id=emp.id) }}" style="display:flex;gap:6px;align-items:center;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="number" name="target_tasks" min="1" max="200" value="{{ emp.target_tasks or 5 }}" class="target-input">
+                            <button type="submit" class="btn btn-small btn-primary" style="padding:6px 12px;font-size:12px;width:auto;"><i class="fas fa-check"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- TAB: Team -->
+<div id="mt-team" class="mgmt-tab-content">
+    <div class="target-tbl-wrap">
+        <table class="target-tbl">
+            <thead><tr><th>#</th><th>الاسم</th><th>الدور</th><th>إنجاز الشهر</th><th>نسبة</th><th>الهدف</th><th>اللوحة</th></tr></thead>
+            <tbody>
+                {% for emp in monthly_data %}
+                <tr>
+                    <td style="color:var(--text-secondary);font-size:11px;">{{ loop.index }}</td>
+                    <td><strong>{{ emp.name }}</strong></td>
+                    <td><span class="chip {% if emp.role=='مشرف' %}chip-sup{% elif emp.role=='موظف' %}chip-emp{% else %}chip-tr{% endif %}">{{ emp.role }}</span></td>
+                    <td style="text-align:center;color:var(--primary);font-weight:700;">{{ emp.completed }}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;min-width:60px;">
+                                <div style="height:100%;border-radius:3px;background:{% if emp.pct>=100 %}linear-gradient(90deg,var(--primary),#c89a6a){% elif emp.pct>=60 %}#27ae60{% elif emp.pct>=30 %}#f39c12{% else %}#e74c3c{% endif %};" data-pct="{{ emp.pct }}"></div>
+                            </div>
+                            <span style="font-size:12px;font-weight:600;color:var(--primary);flex-shrink:0;">{{ emp.pct }}%</span>
+                        </div>
+                    </td>
+                    <td>{{ emp.target }}</td>
+                    <td><a href="{{ url_for('employee_dashboard', employee_id=emp.id) }}" class="btn btn-small btn-primary" style="padding:5px 12px;font-size:11px;width:auto;"><i class="fas fa-chart-line"></i></a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function switchMgmtTab(el, tabId) {
+    document.querySelectorAll('.mgmt-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.mgmt-tab-content').forEach(function(c){ c.classList.remove('active'); });
+    el.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+    setTimeout(applyPct, 30);
+}
+function applyPct() {
+    document.querySelectorAll('[data-pct]').forEach(function(el){
+        el.style.width = el.getAttribute('data-pct') + '%';
+    });
+}
+document.addEventListener('DOMContentLoaded', applyPct);
+</script>
+{% endblock %}

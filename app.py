@@ -40,14 +40,16 @@ def inject_csrf_token():
             'can_manage_users': can_manage_users(session.get('role', '')),
             'can_see_activity': can_see_activity_log(session.get('role', '')),
             'can_manage_announcements': can_manage_announcements(session.get('role', '')),
-            'can_manage_system': can_manage_system(session.get('role', ''))
+            'can_manage_system': can_manage_system(session.get('role', '')),
+            'can_see_all_tasks': can_see_all_tasks(session.get('role', '')),
         }
     return {
         'csrf_token': lambda: '',
         'can_manage_users': can_manage_users(session.get('role', '')),
         'can_see_activity': can_see_activity_log(session.get('role', '')),
         'can_manage_announcements': can_manage_announcements(session.get('role', '')),
-        'can_manage_system': can_manage_system(session.get('role', ''))
+        'can_manage_system': can_manage_system(session.get('role', '')),
+        'can_see_all_tasks': can_see_all_tasks(session.get('role', '')),
     }
 
 # Email (optional)
@@ -1294,7 +1296,7 @@ def update_employee_target(employee_id):
     conn.commit()
     conn.close()
     flash('تم تحديث المستهدف بنجاح', 'success')
-    return redirect(url_for('employees'))
+    return redirect(request.referrer or url_for('employees'))
 
 @app.route('/update_task_progress/<int:task_id>', methods=['POST'])
 @login_required
@@ -1426,6 +1428,60 @@ def system_admin():
         emp_of_month=emp_of_month,
         top_performer=top_performer,
         all_employees=[dict(e) for e in all_employees],
+    )
+
+
+@app.route('/management')
+@login_required
+def management_dashboard():
+    if not can_see_all_tasks(session['role']):
+        flash('غير مصرح', 'error')
+        return redirect(url_for('dashboard'))
+    user = get_user_by_id(session['user_id'])
+    now = datetime.now()
+    this_month = now.strftime('%Y-%m')
+    this_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
+    q_key = f'{this_year}-Q{current_quarter}'
+    q_names = {1: 'الأول', 2: 'الثاني', 3: 'الثالث', 4: 'الرابع'}
+
+    monthly_data = get_monthly_achievement(this_month)
+    monthly_org_completed = sum(e['completed'] for e in monthly_data)
+    monthly_mgmt = get_management_target(this_month, 'monthly')
+    monthly_org_target = monthly_mgmt['target_completions'] if monthly_mgmt else 0
+    monthly_org_pct = min(100, int(monthly_org_completed / monthly_org_target * 100)) if monthly_org_target > 0 else 0
+
+    quarterly_data = get_quarterly_achievement(this_year, current_quarter)
+    all_quarters = get_all_quarters_summary(this_year)
+    quarterly_mgmt_target = get_management_target(q_key, 'quarterly')
+
+    top_performer = get_top_performer_month()
+    emp_of_month = monthly_data[0] if monthly_data and monthly_data[0]['completed'] > 0 else None
+
+    conn = get_db_connection()
+    all_employees = conn.execute(
+        "SELECT id, name, role, username, target_tasks FROM users WHERE role IN ('موظف','مشرف','متدرب') ORDER BY role, name"
+    ).fetchall()
+    conn.close()
+
+    return render_template('management_dashboard.html',
+        user=user,
+        monthly_data=monthly_data,
+        monthly_org_completed=monthly_org_completed,
+        monthly_org_target=monthly_org_target,
+        monthly_org_pct=monthly_org_pct,
+        this_month=this_month,
+        quarterly_data=quarterly_data,
+        all_quarters=all_quarters,
+        current_quarter=current_quarter,
+        this_year=this_year,
+        q_key=q_key,
+        quarter_name=q_names[current_quarter],
+        quarterly_mgmt_target=quarterly_mgmt_target,
+        emp_of_month=emp_of_month,
+        top_performer=top_performer,
+        all_employees=[dict(e) for e in all_employees],
+        can_set_targets=can_manage_users(session['role']),
     )
 
 
